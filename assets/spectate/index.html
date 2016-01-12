@@ -1,0 +1,50 @@
+<html>
+  <head>
+    <title>Dos, An UNO Clone</title>
+  </head>
+  <body>
+    <script>
+      var ws = new WebSocket("ws://ark.ydns.eu:8080/ws/spectate");
+      var cards;
+      ws.addEventListener("message", (e) => {
+        var data = JSON.parse(e.data);
+        console.log(data);
+
+        switch (data['type']) {
+          case "initialInformation":
+            // cards = data['cards'];
+            // for (var i = 0; i < cards.length; i++) {
+            //   var card = cards[i];
+            //   console.log(card);
+            // }
+            break;
+
+          case "update":
+            // Update Local Deck
+            // if (data.hasOwnProperty('removed')) {
+            //   for (var i = 0; i < cards.length; i++) {
+            //     var card = cards[i];
+            //     if (areEqual(card, data['removed'])) {
+            //       cards.splice(i, 1);
+            //       break;
+            //     }
+            //   }
+            // } else if (data.hasOwnProperty('added')) {
+            //   cards.push(data['added']);
+            // }
+            break;
+        }
+
+        function areEqual(carda, cardb) {
+          var props = ["CardColor", "CardType", "Number"];
+          for (var i = 0; i < props.length; i++) {
+            var prop = props[i];
+            if (carda[prop] != cardb[prop])
+              return false;
+          }
+          return true;
+        }
+      });
+    </script>
+  </body>
+</html>
