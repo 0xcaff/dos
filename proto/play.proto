@@ -1,0 +1,11 @@
+syntax = "proto2";
+package dos;
+
+import "proto/card.proto";
+
+// Message sent from a player client when they play a card.
+message PlayMessage {
+	// The index of the card in the player's hand to play.
+	required int32 card = 1;
+}
+

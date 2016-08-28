@@ -1,0 +1,25 @@
+syntax = "proto2";
+package dos;
+
+import "proto/card.proto";
+
+// A message sent to a client to update a card collection.
+message CardsChangedMessage {
+	// An ordered array of additions to be added to the end of the specified
+	// collection.
+	repeated Card additions = 1;
+
+	// Indices of elements to delete.
+	repeated int32 deletions = 2;
+
+	// Specifies which collection should be updated.
+	required Collection which = 3;
+
+	// If `which` is HAND, and the client is GOD, the player whose hand changed.
+	optional string player = 4;
+}
+
+enum Collection {
+	HAND = 0;
+	DECK = 1;
+}
