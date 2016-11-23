@@ -2,44 +2,32 @@ package main
 
 import (
 	"fmt"
-	"github.com/caffinatedmonkey/dos/models"
-	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"sync"
+
+	"github.com/caffinatedmonkey/dos/game"
+	"github.com/caffinatedmonkey/dos/proto"
+	"github.com/golang/protobuf/proto"
+	"github.com/gorilla/websocket"
 )
 
 var wg = sync.WaitGroup{}
-var upgrader = websocket.Upgrader{}
-var connections = map[string]*websocket.Conn{}
-var spectatorConnections = []*websocket.Conn{}
-
 var mux = http.NewServeMux()
+var upgrader = websocket.Upgrader{}
 var s = &http.Server{
 	Addr:    ":8080",
 	Handler: mux,
 }
 var game = dos.NewGame()
 
-// TODO: Put these in a different file
-type startGameRequest struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
-}
-
-type turnResponse struct {
-	Type     string `json:"type"`
-	dos.Card `json:"card"`
-}
-
 func main() {
-	mux.HandleFunc("/ws/play", handlePlay)
-	mux.HandleFunc("/ws/spectate", handleSpectate)
-	mux.Handle("/", http.FileServer(http.Dir("assets")))
+	mux.HandleFunc("/ws", handleSocket)
+	mux.Handle("/", http.FileServer(SPAFileSystem("frontend")))
 
 	wg.Add(1)
 	go func(s *http.Server) {
-		fmt.Println("Starting Server")
+		fmt.Println("[server] initializing")
 		log.Fatal(s.ListenAndServe())
 		wg.Done()
 	}(s)
@@ -47,152 +35,82 @@ func main() {
 	wg.Wait()
 }
 
-func handlePlay(rw http.ResponseWriter, r *http.Request) {
+func handleSocket(rw http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(rw, r, nil)
 	if err != nil {
-		// TODO: Handle Error
-		log.Fatal(err)
-		panic(err)
+		fmt.Println("[websocket] connection initialization failed", err)
+		return
 	}
 
-	sgr := &startGameRequest{}
-	err = conn.ReadJSON(sgr)
+	_, buf, err := conn.ReadMessage()
 	if err != nil {
-		// TODO: Handle Error
-		log.Fatal(err)
-		panic(err)
+		fmt.Println("[websocket] failed to read message", err)
+		return
 	}
 
-	if sgr.Type == "start" {
-		// Add Players to the Game
-		player := game.NewPlayer(sgr.Name)
-		fmt.Printf("Player (%s) Joined the Game!\n", player.Name)
-		connections[player.Name] = conn
-
-		for _, specConn := range spectatorConnections {
-			player.Hand.OnAddition(func(i interface{}) {
-				specConn.WriteJSON(map[string]interface{}{
-					"type":  "addition",
-					"to":    "hand",
-					"name":  player.Name,
-					"added": i,
-				})
-			})
-		}
+	handshake := dos.Handshake{}
+	err = proto.Unmarshal(handshake, buf)
+	if err != nil {
+		fmt.Println("[websocket] failed to parse handshake", err)
+		return
 	}
+
+	// TODO: Behave based on handshake.
+	switch handshake.Type {
+	case HandshakeMessage_PLAYER:
+
+	case HandshakeMessage_DECK:
+	}
+}
+
+func handlePlay(conn *websocket.Conn) {
+	_, buf, err := conn.ReadMessage()
+	if err != nil {
+		fmt.Println("[websocket] failed to read message", err)
+		return
+	}
+
+	readyMessage := dos.ReadyMessage{}
+	err = proto.Unmarshal(readyMessage, buf)
+	if err != nil {
+		fmt.Println("[websocket] failed to ready message", err)
+		return
+	}
+
+	player := game.NewPlayer(readyMessage.Name)
+	fmt.Printf("[game] %s joined\n", readyMessage.Name)
+
+	// TODO: Setup listeners to convey state
+}
+
+func handleDeck(conn *websocket.Conn) {
+
 }
 
 func handleSpectate(rw http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(rw, r, nil)
 	if err != nil {
-		// TODO: Handle Error
-		log.Fatal(err)
-		panic(err)
+		fmt.Println("[websocket] connection failed")
+		return
 	}
 
-	fmt.Println("Spectator Joined")
-	conn.WriteJSON(map[string]interface{}{
-		"type":     "initialInformation",
-		"deck":     game.Deck.Cards.List,
-		"players":  game.Players,
-		"lastCard": game.LastPlayedCard,
-	})
-
-	game.Deck.Cards.OnDeletion(func(i interface{}) {
-		conn.WriteJSON(map[string]interface{}{
-			"type":    "deletion",
-			"from":    "deck",
-			"removed": i,
-		})
-	})
-
-	game.Players.OnAddition(func(i interface{}) {
-		conn.WriteJSON(map[string]interface{}{
-			"type":  "addition",
-			"to":    "player",
-			"added": i,
-		})
-	})
-
-	game.Players.OnDeletion(func(i interface{}) {
-		conn.WriteJSON(map[string]interface{}{
-			"type":    "deletion",
-			"from":    "player",
-			"removed": i,
-		})
-	})
-	spectatorConnections = append(spectatorConnections, conn)
+	fmt.Println("[game] spectator joined")
+	game.NewSpectator(*conn)
+	err = conn.WriteJSON(game)
+	if err != nil {
+		fmt.Printf("[websocket] %v\n", err)
+	}
 
 	for {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
-			log.Fatal(err)
+			fmt.Printf("[websocket] %v\n", err)
+			break
 		}
+
 		if messageType == websocket.TextMessage && string(p) == "start" {
-			fmt.Println("Starting Game")
-
-			// Send player information to other players
-			for _, p := range game.Players.List {
-				player := p.(dos.Player)
-				conn := connections[player.Name]
-				err := conn.WriteJSON(map[string]interface{}{
-					"type": "start",
-					// TODO: Player Names only
-					"players": game.Players,
-					"hand":    player.Hand.List,
-				})
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-
-			// Game Loop
-			for {
-				player := game.NextPlayer()
-				playerConn := connections[player.Name]
-
-				for _, p := range game.Players.List {
-					player := p.(dos.Player)
-					conn := connections[player.Name]
-					err := conn.WriteJSON(map[string]interface{}{
-						"type": "updateCard",
-						"card": game.LastPlayedCard,
-					})
-					if err != nil {
-						log.Fatal(err)
-					}
-				}
-
-				fmt.Printf("Player (%s) Turn\n", player.Name)
-				err = playerConn.WriteJSON(map[string]interface{}{
-					"type": "turn",
-				})
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				for {
-					tr := turnResponse{}
-					err = playerConn.ReadJSON(&tr)
-					if err != nil {
-						log.Fatal(err)
-					}
-
-					// TODO: fix ability to draw multiple cards per turn
-					if tr.Type == "drawCard" {
-						newCard := game.Deck.Cards.Pop()
-						player.Hand.Push(newCard)
-						fmt.Printf("Player (%s), Drew Card, %v\n", player.Name, newCard)
-					} else if tr.Type == "playCard" {
-						game.PlayCard(tr.Card)
-						fmt.Printf("Player (%s), Played Card %v\n", player.Name, tr.Card)
-						break
-					}
-
-					// TODO: End Game Thingy
-					// TODO: End of DrawDeck Reshuffler Thing
-				}
-			}
+			fmt.Println("[game] starting game")
+			game.Start()
 		}
 	}
 }

@@ -31,25 +31,17 @@ var CardColors []CardColor = []CardColor{Red, Orange, Green, Blue}
 
 // Returns whether or not c can be played on top of currentCard
 func (baseCard *Card) CanCover(otherCard Card) bool {
-	// Black Wild Cards can be played at any time.
-	if otherCard.CardColor == Black {
-		return true
+	if baseCard.CardType != Normal {
+		specialMatch := baseCard.CardType == otherCard.CardType
+		if specialMatch {
+			// Matching Special Cards
+			return true
+		}
 	}
 
 	colorsMatch := baseCard.CardColor == otherCard.CardColor
-	if baseCard.CardType != Normal {
-		specialMatch := baseCard.CardType == otherCard.CardType
-		if colorsMatch || specialMatch {
-			return true
-		} else {
-			return false
-		}
-	} else {
-		numbersMatch := baseCard.Number == otherCard.Number
-		if colorsMatch || numbersMatch {
-			return true
-		} else {
-			return false
-		}
-	}
+	numbersMatch := baseCard.Number == otherCard.Number
+
+	// Black Cards can be played at any time.
+	return colorsMatch || numbersMatch || otherCard.CardColor == Black
 }

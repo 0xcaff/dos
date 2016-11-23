@@ -1,13 +1,29 @@
 package dos
 
+// An ObservableList of Cards.
 type Deck struct {
 	Cards ObservableList
 }
 
 // Creates a new deck and populates it with the standard playing cards
 func NewDeck() Deck {
-	d := Deck{}
+	d := Deck{
+		Cards: NewObservableList(),
+	}
+	d.Populate()
+	d.Cards.Shuffle()
+	return d
+}
 
+func (d *Deck) Pop() Card {
+	return d.Cards.Pop().(Card)
+}
+
+func (d *Deck) Push(c Card) {
+	d.Cards.Push(c)
+}
+
+func (d *Deck) Populate() {
 	for i := 0; i < 2; i++ {
 		for _, color := range CardColors {
 			// Insert Cards 1-9
@@ -52,15 +68,4 @@ func NewDeck() Deck {
 			}
 		}
 	}
-
-	d.Cards.Shuffle()
-	return d
-}
-
-func (d *Deck) Pop() Card {
-	return d.Cards.Pop().(Card)
-}
-
-func (d *Deck) Push(c Card) {
-	d.Cards.Push(c)
 }

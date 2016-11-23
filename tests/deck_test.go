@@ -5,29 +5,33 @@ import (
 	"testing"
 )
 
-func TestDeck(t *testing.T) {
+var deckCounts map[dos.CardColor]int = map[dos.CardColor]int{
+	dos.Blue:   25,
+	dos.Green:  25,
+	dos.Red:    25,
+	dos.Orange: 25,
+	dos.Black:  8,
+}
+
+func TestStartingDeck(t *testing.T) {
 	d := dos.NewDeck()
 	if d.Cards.Length() != 108 {
-		t.Errorf("Cards Length (%d) != 108", d.Cards.Length())
+		t.Errorf("Length (%d) != 108", d.Cards.Length())
 	}
 
-	// blk := 0
-	// red := 0
-	// for _, c := range d.Cards {
-	// 	if c.CardColor == dos.Black {
-	// 		blk++
-	// 	}
+	colorCount := make(map[dos.CardColor]int)
+	d.Cards.Each(func(v interface{}, i int) bool {
+		c := v.(dos.Card)
+		colorCount[c.CardColor] = colorCount[c.CardColor] + 1
+		return false
+	})
 
-	// 	if c.CardColor == dos.Red {
-	// 		red++
-	// 	}
-	// }
+	for k, v := range colorCount {
+		if deckCounts[k] != v {
+			t.Logf("%d (should be) != %d (counted)", deckCounts[k], v)
+		}
+	}
 
-	// if blk > 8 {
-	// 	t.Errorf("Black Cards (%d) > 8", blk)
-	// }
-
-	// if red > 25 {
-	// 	t.Errorf("Red Cards (%d) > 25", red)
-	// }
+	// TODO: Count Numbers
+	// TODO: Count Type
 }

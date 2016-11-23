@@ -4,7 +4,7 @@ package dos;
 import "proto/card.proto";
 
 // Message sent to all clients after a player plays a card.
-message NextTunrMessage {
+message NextTurnMessage {
 	// The name of player whose turn it is next.
 	required string player = 1;
 
