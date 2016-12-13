@@ -1,20 +1,19 @@
-syntax = "proto2";
+syntax = "proto3";
 package dos;
 
-// Message sent from client after opening a connection to the server to show
-// what data it wants to recieve.
+// Message sent from client after opening a connection.
 message HandshakeMessage {
-	enum ClientType {
-		// Each of the players choose this type.
-		PLAYER = 0;
+	ClientType type = 1;
+}
 
-		// The central screen uses this type.
-		DECK = 1;
+enum ClientType {
+	// Each of the players choose this type.
+	PLAYER = 0;
 
-		// A debugging mode which sends all updates.
-		// GOD = 2;
-	}
+	// The central screen uses this type.
+	SPECTATOR = 1;
 
-	required ClientType type = 1 [default = PLAYER];
+	// A debugging mode which sends all updates of all players.
+	// GOD = 2;
 }
 

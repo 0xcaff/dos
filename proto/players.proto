@@ -1,0 +1,11 @@
+syntax = "proto3";
+package dos;
+
+// Messages sent from server to client after handshake but before game starts.
+// Contains information to synchronize player lists.
+message PlayersMessage {
+	repeated string initial = 1;
+	string addition = 2;
+	string deletion = 3;
+}
+

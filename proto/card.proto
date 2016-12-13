@@ -1,14 +1,14 @@
-syntax = "proto2";
+syntax = "proto3";
 package dos;
 
 message Card {
-	required int32 number = 1;
-	optional CardType type = 2 [default = NORMAL];
-	required CardColor color = 3;
+	int32 number = 1;
+	CardType type = 2;
+	CardColor color = 3;
 }
 
 enum CardType {
-	NORAML = 0;
+	NORMAL = 0;
 	SKIP = 1;
 	DOUBLEDRAW = 2;
 	REVERSE = 3;
@@ -18,7 +18,7 @@ enum CardType {
 
 enum CardColor {
 	RED = 0;
-	ORANGE = 1;
+	YELLOW = 1;
 	GREEN = 2;
 	BLUE = 3;
 	BLACK = 4;

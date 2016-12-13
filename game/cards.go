@@ -1,47 +1,87 @@
 package dos
 
-type Card struct {
-	Number int
-	CardType
-	CardColor
+import (
+	proto "github.com/caffinatedmonkey/dos/proto"
+	"github.com/caffinatedmonkey/dos/utils"
+)
+
+var CardColors = []proto.CardColor{
+	proto.CardColor_RED,
+	proto.CardColor_YELLOW,
+	proto.CardColor_GREEN,
+	proto.CardColor_BLUE,
+	proto.CardColor_BLACK,
 }
 
-type CardType string
+// An ObservableList of Cards.
+type Cards struct {
+	utils.ObservableList
+}
 
-const (
-	Normal     CardType = "normal"
-	Skip                = "skip"
-	DoubleDraw          = "drawtwo"
-	Reverse             = "reverse"
-	Wild                = "wild"
-	QuadDraw            = "wilddraw"
-)
+// Creates a new deck and populates it with the standard playing cards
+func PlayingDeck() *Cards {
+	deck := Cards{utils.NewObservableList()}
+	deck.Populate()
+	deck.ObservableList.Shuffle()
+	return &deck
+}
 
-type CardColor string
+func EmptyCards() *Cards {
+	return &Cards{utils.NewObservableList()}
+}
 
-const (
-	Red    CardColor = "red"
-	Orange           = "orange"
-	Green            = "green"
-	Blue             = "blue"
-	Black            = "black"
-)
+func (cards *Cards) Pop() proto.Card {
+	return cards.ObservableList.Pop().(proto.Card)
+}
 
-var CardColors []CardColor = []CardColor{Red, Orange, Green, Blue}
+func (cards *Cards) Push(c proto.Card) {
+	cards.ObservableList.Push(c)
+}
 
-// Returns whether or not c can be played on top of currentCard
-func (baseCard *Card) CanCover(otherCard Card) bool {
-	if baseCard.CardType != Normal {
-		specialMatch := baseCard.CardType == otherCard.CardType
-		if specialMatch {
-			// Matching Special Cards
-			return true
+// Add the standard cards to the deck.
+func (cards *Cards) Populate() {
+	for i := 0; i < 2; i++ {
+		for _, color := range CardColors {
+			// Insert Cards 1-9
+			for k := int32(1); k < int32(10); k++ {
+				cards.ObservableList.Push(proto.Card{
+					Number: k,
+					Color:  color,
+					Type:   proto.CardType_NORMAL,
+				})
+			}
+
+			// Insert Special Cards (Skip, Reverse, DoubleDraw)
+			cards.ObservableList.Push(proto.Card{
+				Number: -1,
+				Color:  color,
+				Type:   proto.CardType_SKIP,
+			}, proto.Card{
+				Number: -1,
+				Color:  color,
+				Type:   proto.CardType_REVERSE,
+			}, proto.Card{
+				Number: -1,
+				Color:  color,
+				Type:   proto.CardType_DOUBLEDRAW,
+			})
+			if i == 0 {
+				cards.ObservableList.Push(proto.Card{
+					Number: -1,
+					Color:  proto.CardColor_BLACK,
+					Type:   proto.CardType_QUADDRAW,
+				}, proto.Card{
+					Number: 0,
+					Color:  color,
+					Type:   proto.CardType_NORMAL,
+				})
+			} else if i == 1 {
+				cards.ObservableList.Push(proto.Card{
+					Number: -1,
+					Color:  proto.CardColor_BLACK,
+					Type:   proto.CardType_WILD,
+				})
+			}
 		}
 	}
-
-	colorsMatch := baseCard.CardColor == otherCard.CardColor
-	numbersMatch := baseCard.Number == otherCard.Number
-
-	// Black Cards can be played at any time.
-	return colorsMatch || numbersMatch || otherCard.CardColor == Black
 }

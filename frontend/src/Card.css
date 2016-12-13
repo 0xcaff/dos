@@ -1,0 +1,137 @@
+@import url('https://fonts.googleapis.com/css?family=Nunito');
+
+.card {
+  border-radius: 0.125in;
+  box-shadow: 0 0 0.2em 0 #ccc;
+  overflow: hidden;
+  user-select: none;
+  position: relative;
+  width: 10em;
+  background: white;
+}
+
+.card:before {
+  display: block;
+  content: "";
+  width: 100%;
+  /* 3.5/2.5 * 100% */
+  padding-top: 140%;
+}
+
+.card .background {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  overflow: hidden;
+
+  /* 0.2 / 2.5 * 100% */
+  margin: 8%;
+  border-radius: 5% 3%;
+}
+
+.card .background .oval {
+  position: absolute;
+  height: 80%;
+  width: 90%;
+  border-radius: 50%;
+  background: white;
+  top: 50%;
+  left: 50%;
+  overflow: hidden;
+  transform: translateY(-50%) translateX(-50%) skew(-25deg);
+}
+
+.oval .top, .oval .bottom {
+  position: absolute;
+}
+
+.oval .top {
+  top: 0;
+  bottom: 50%;
+}
+
+.oval .bottom {
+  bottom: 0;
+  top: 50%;
+}
+
+.oval .left {
+  left: 0;
+  right: 50%;
+}
+
+.oval .right {
+  right: 0;
+  left: 50%;
+}
+
+.number {
+  position: absolute;
+  text-shadow: rgba(0, 0, 0, 0.75) 0.05em 0.05em;
+  font-family: 'Nunito', sans-serif;
+  font-weight: bold;
+}
+
+.number.big {
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  font-size: 50pt;
+}
+
+.red .background, .oval .right.bottom {
+  background: #ea1823;
+}
+
+.red .number {
+  color: red;
+}
+
+.yellow .background, .oval .left.top {
+  background: #fff000;
+}
+
+.yellow .number {
+  color: yellow;
+}
+
+.green .background, .oval .right.top {
+  background: #56a90f;
+}
+
+.green .number {
+  color: green;
+}
+
+.blue .background, .oval .left.bottom {
+  background: #2077d6;
+}
+
+.blue .number {
+  color: blue;
+}
+
+.black .background {
+  background: black;
+}
+
+.number.small {
+  font-size: 25pt;
+  line-height: 25pt;
+  color: #eee;
+  margin: 5%;
+}
+
+.number.left {
+  top: 0;
+  left: 0;
+}
+
+.number.right {
+  bottom: 0;
+  right: 0;
+  transform: rotateZ(180deg);
+}
+

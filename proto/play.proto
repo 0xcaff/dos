@@ -1,21 +1,14 @@
-syntax = "proto2";
+syntax = "proto3";
 package dos;
 
 import "proto/card.proto";
 
 // Message sent from a player client when they play a card.
 message PlayMessage {
-	optional Action action = 1 [default = PLAY];
-
 	// If the action is PLAY, index of the card in the player's hand to play.
-	optional int32 card = 2;
+	int32 card = 2;
 
 	// If the card is black, the desired color of the card.
-	optional CardColor color = 3;
-}
-
-enum Action {
-	PLAY = 0;
-	DRAW = 1;
+	CardColor color = 3;
 }
 

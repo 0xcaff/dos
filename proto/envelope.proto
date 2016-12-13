@@ -1,0 +1,19 @@
+syntax = "proto3";
+package dos;
+
+// Container for messages.
+message Envelope {
+	MessageType type = 1;
+	bytes contents = 2;
+}
+
+enum MessageType {
+	TURN = 0;
+	PLAYERS = 1;
+	DRAW = 2;
+	PLAY = 3;
+
+	READY = 4;
+	START = 5;
+}
+
