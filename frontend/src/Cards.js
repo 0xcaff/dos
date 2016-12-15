@@ -17,11 +17,8 @@ class Cards extends Component {
       <div ref={(element) => this.element = element} className='cards'>
         {this.props.cards.map(card =>
           <Card
-            number={card.number}
-            type={card.type}
-            color={card.color}
-            // TODO: Key is not unique.
-            key={JSON.stringify(card)} />
+            card={card}
+            key={card.id} />
         )}
       </div>
     );

@@ -2,9 +2,11 @@ syntax = "proto3";
 package dos;
 
 message Card {
-	int32 number = 1;
-	CardType type = 2;
-	CardColor color = 3;
+	// The index of the card in the deck.
+	int32 id = 1;
+	int32 number = 2;
+	CardType type = 3;
+	CardColor color = 4;
 }
 
 enum CardType {

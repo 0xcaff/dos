@@ -12,8 +12,9 @@ enum MessageType {
 	PLAYERS = 1;
 	DRAW = 2;
 	PLAY = 3;
+	CARDS = 4;
 
-	READY = 4;
-	START = 5;
+	READY = 5;
+	START = 6;
 }
 

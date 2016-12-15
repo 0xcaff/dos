@@ -9,6 +9,7 @@ class App extends Component {
   state = {
     view: (window.location.pathname.slice(1) || 'join'),
     players: [],
+    cards: [],
   }
 
   constructor(props) {
@@ -64,6 +65,16 @@ class App extends Component {
             .filter(player => player !== playersMessage.deletion),
         });
       }
+    } else if (envelope.type === dos.MessageType.CARDS) {
+      const cardsMessage = dos.CardsChangedMessage.decode(envelope.contents);
+      if (cardsMessage.additions.length > 0) {
+        this.setState({
+          cards: this.state.cards.concat(cardsMessage.additions),
+        });
+      }
+      // TODO: Handle deletions
+
+      this.navigateTo('play');
     }
   }
 
@@ -75,7 +86,9 @@ class App extends Component {
       return <LobbyView
                players={this.state.players} />
     } else if (this.state.view === 'play') {
-      return <PlayView />
+      return <PlayView
+               cards={this.state.cards}
+               players={this.state.players} />
     } else if (this.state.view === 'spectate') {
       return <SpectatorView
                socket={this.socket} />

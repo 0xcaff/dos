@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -34,14 +33,12 @@ func (broadcast *Broadcaster) RemoveListener(channel chan interface{}) {
 	newListeners := []chan interface{}{}
 
 	broadcast.RWMutex.Lock()
-	fmt.Println("before remove", broadcast.listeners, channel)
 	for _, listener := range broadcast.listeners {
 		if listener != channel {
 			newListeners = append(newListeners, listener)
 		}
 	}
 	broadcast.listeners = newListeners
-	fmt.Println("removed", broadcast.listeners)
 	broadcast.RWMutex.Unlock()
 }
 
@@ -62,7 +59,6 @@ func (broadcast *Broadcaster) StartBroadcasting() {
 	broadcast.isLive = true
 	for event := range broadcast.receiver {
 		broadcast.RWMutex.RLock()
-		fmt.Println(broadcast.listeners)
 		for _, listener := range broadcast.listeners {
 			listener <- event
 		}

@@ -35,6 +35,13 @@ $root.dos = (function() {
         var $prototype = Card.prototype;
 
         /**
+         * Card id.
+         * @name dos.Card#id
+         * @type {number}
+         */
+        $prototype["id"] = 0;
+
+        /**
          * Card number.
          * @name dos.Card#number
          * @type {number}
@@ -66,15 +73,17 @@ $root.dos = (function() {
             /* eslint-disable */
             var Writer = $protobuf.Writer;
             var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.CardType","dos.CardColor"]);
+            var types; $lazyTypes.push(types = [null,null,"dos.CardType","dos.CardColor"]);
             return function encode(m, w) {
                 w||(w=Writer.create())
+                if(m['id']!==undefined&&m['id']!==0)
+                    w.tag(1,0).int32(m['id'])
                 if(m['number']!==undefined&&m['number']!==0)
-                    w.tag(1,0).int32(m['number'])
+                    w.tag(2,0).int32(m['number'])
                 if(m['type']!==undefined&&m['type']!==0)
-                    w.tag(2,0).uint32(m['type'])
+                    w.tag(3,0).uint32(m['type'])
                 if(m['color']!==undefined&&m['color']!==0)
-                    w.tag(3,0).uint32(m['color'])
+                    w.tag(4,0).uint32(m['color'])
                 return w
             }
             /* eslint-enable */
@@ -101,7 +110,7 @@ $root.dos = (function() {
             /* eslint-disable */
             var Reader = $protobuf.Reader;
             var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.CardType","dos.CardColor"]);
+            var types; $lazyTypes.push(types = [null,null,"dos.CardType","dos.CardColor"]);
             return function decode(r, l) {
                 r instanceof Reader||(r=Reader.create(r))
                 var c=l===undefined?r.len:r.pos+l,m=new $root.dos.Card
@@ -109,12 +118,15 @@ $root.dos = (function() {
                     var t=r.tag()
                     switch(t.id){
                         case 1:
-                            m['number']=r.int32()
+                            m['id']=r.int32()
                             break
                         case 2:
-                            m['type']=r.uint32()
+                            m['number']=r.int32()
                             break
                         case 3:
+                            m['type']=r.uint32()
+                            break
+                        case 4:
                             m['color']=r.uint32()
                             break
                         default:
@@ -145,8 +157,12 @@ $root.dos = (function() {
         Card.verify = (function() {
             /* eslint-disable */
             var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.CardType","dos.CardColor"]);
+            var types; $lazyTypes.push(types = [null,null,"dos.CardType","dos.CardColor"]);
             return function verify(m) {
+                if(m['id']!==undefined){
+                    if(!util.isInteger(m['id']))
+                        return"invalid value for field .dos.Card.id (integer expected)"
+                }
                 if(m['number']!==undefined){
                     if(!util.isInteger(m['number']))
                         return"invalid value for field .dos.Card.number (integer expected)"
@@ -212,6 +228,164 @@ $root.dos = (function() {
         BLUE: 3,
         BLACK: 4
     };
+
+    /** @alias dos.CardsChangedMessage */
+    dos.CardsChangedMessage = (function() {
+
+        /**
+         * Constructs a new CardsChangedMessage.
+         * @exports dos.CardsChangedMessage
+         * @constructor
+         * @param {Object} [properties] Properties to set
+         */
+        function CardsChangedMessage(properties) {
+            if (properties) {
+                var keys = Object.keys(properties);
+                for (var i = 0; i < keys.length; ++i)
+                    this[keys[i]] = properties[keys[i]];
+            }
+        }
+
+        /** @alias dos.CardsChangedMessage.prototype */
+        var $prototype = CardsChangedMessage.prototype;
+
+        /**
+         * CardsChangedMessage additions.
+         * @name dos.CardsChangedMessage#additions
+         * @type {Array.<dos.Card>}
+         */
+        $prototype["additions"] = $protobuf.util.emptyArray;
+
+        /**
+         * CardsChangedMessage deletions.
+         * @name dos.CardsChangedMessage#deletions
+         * @type {Array.<number>}
+         */
+        $prototype["deletions"] = $protobuf.util.emptyArray;
+
+        /**
+         * Encodes the specified CardsChangedMessage.
+         * @function
+         * @param {dos.CardsChangedMessage|Object} message CardsChangedMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        CardsChangedMessage.encode = (function() {
+            /* eslint-disable */
+            var Writer = $protobuf.Writer;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = ["dos.Card",null]);
+            return function encode(m, w) {
+                w||(w=Writer.create())
+                if(m['additions'])
+                    for(var i=0;i<m['additions'].length;++i)
+                    types[0].encode(m['additions'][i],w.tag(1,2).fork()).ldelim()
+                if(m['deletions']&&m['deletions'].length){
+                    w.fork()
+                    for(var i=0;i<m['deletions'].length;++i)
+                        w.int32(m['deletions'][i])
+                    w.ldelim(2)
+                }
+                return w
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Encodes the specified CardsChangedMessage, length delimited.
+         * @param {dos.CardsChangedMessage|Object} message CardsChangedMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        CardsChangedMessage.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a CardsChangedMessage from the specified reader or buffer.
+         * @function
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {dos.CardsChangedMessage} CardsChangedMessage
+         */
+        CardsChangedMessage.decode = (function() {
+            /* eslint-disable */
+            var Reader = $protobuf.Reader;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = ["dos.Card",null]);
+            return function decode(r, l) {
+                r instanceof Reader||(r=Reader.create(r))
+                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.CardsChangedMessage
+                while(r.pos<c){
+                    var t=r.tag()
+                    switch(t.id){
+                        case 1:
+                            m['additions']&&m['additions'].length?m['additions']:m['additions']=[]
+                            m['additions'][m['additions'].length]=types[0].decode(r,r.uint32())
+                            break
+                        case 2:
+                            m['deletions']&&m['deletions'].length?m['deletions']:m['deletions']=[]
+                            if(t.wireType===2){
+                                var e=r.uint32()+r.pos
+                                while(r.pos<e)
+                                    m['deletions'][m['deletions'].length]=r.int32()
+                            }else
+                                m['deletions'][m['deletions'].length]=r.int32()
+                            break
+                        default:
+                            r.skipType(t.wireType)
+                            break
+                    }
+                }
+                return m
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Decodes a CardsChangedMessage from the specified reader or buffer, length delimited.
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @returns {dos.CardsChangedMessage} CardsChangedMessage
+         */
+        CardsChangedMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
+            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
+            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
+        };
+
+        /**
+         * Verifies a CardsChangedMessage.
+         * @param {dos.CardsChangedMessage|Object} message CardsChangedMessage or plain object to verify
+         * @returns {?string} `null` if valid, otherwise the reason why it is not
+         */
+        CardsChangedMessage.verify = (function() {
+            /* eslint-disable */
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = ["dos.Card",null]);
+            return function verify(m) {
+                if(m['additions']!==undefined){
+                    if(!Array.isArray(m['additions']))
+                        return"invalid value for field .dos.CardsChangedMessage.additions (array expected)"
+                    for(var i=0;i<m['additions'].length;++i){
+                        var r;
+                        if(r=types[0].verify(m['additions'][i]))
+                            return r
+                    }
+                }
+                if(m['deletions']!==undefined){
+                    if(!Array.isArray(m['deletions']))
+                        return"invalid value for field .dos.CardsChangedMessage.deletions (array expected)"
+                    for(var i=0;i<m['deletions'].length;++i){
+                        if(!util.isInteger(m['deletions'][i]))
+                            return"invalid value for field .dos.CardsChangedMessage.deletions (integer[] expected)"
+                    }
+                }
+                return null
+            }
+            /* eslint-enable */
+        })();
+
+        return CardsChangedMessage;
+    })();
 
     /** @alias dos.Envelope */
     dos.Envelope = (function() {
@@ -344,6 +518,7 @@ $root.dos = (function() {
                         case 3:
                         case 4:
                         case 5:
+                        case 6:
                             break
                     }
                 }
@@ -370,8 +545,146 @@ $root.dos = (function() {
         PLAYERS: 1,
         DRAW: 2,
         PLAY: 3,
-        READY: 4,
-        START: 5
+        CARDS: 4,
+        READY: 5,
+        START: 6
+    };
+
+    /** @alias dos.HandshakeMessage */
+    dos.HandshakeMessage = (function() {
+
+        /**
+         * Constructs a new HandshakeMessage.
+         * @exports dos.HandshakeMessage
+         * @constructor
+         * @param {Object} [properties] Properties to set
+         */
+        function HandshakeMessage(properties) {
+            if (properties) {
+                var keys = Object.keys(properties);
+                for (var i = 0; i < keys.length; ++i)
+                    this[keys[i]] = properties[keys[i]];
+            }
+        }
+
+        /** @alias dos.HandshakeMessage.prototype */
+        var $prototype = HandshakeMessage.prototype;
+
+        /**
+         * HandshakeMessage type.
+         * @name dos.HandshakeMessage#type
+         * @type {number}
+         */
+        $prototype["type"] = 0;
+
+        /**
+         * Encodes the specified HandshakeMessage.
+         * @function
+         * @param {dos.HandshakeMessage|Object} message HandshakeMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        HandshakeMessage.encode = (function() {
+            /* eslint-disable */
+            var Writer = $protobuf.Writer;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = ["dos.ClientType"]);
+            return function encode(m, w) {
+                w||(w=Writer.create())
+                if(m['type']!==undefined&&m['type']!==0)
+                    w.tag(1,0).uint32(m['type'])
+                return w
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Encodes the specified HandshakeMessage, length delimited.
+         * @param {dos.HandshakeMessage|Object} message HandshakeMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        HandshakeMessage.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a HandshakeMessage from the specified reader or buffer.
+         * @function
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {dos.HandshakeMessage} HandshakeMessage
+         */
+        HandshakeMessage.decode = (function() {
+            /* eslint-disable */
+            var Reader = $protobuf.Reader;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = ["dos.ClientType"]);
+            return function decode(r, l) {
+                r instanceof Reader||(r=Reader.create(r))
+                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.HandshakeMessage
+                while(r.pos<c){
+                    var t=r.tag()
+                    switch(t.id){
+                        case 1:
+                            m['type']=r.uint32()
+                            break
+                        default:
+                            r.skipType(t.wireType)
+                            break
+                    }
+                }
+                return m
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Decodes a HandshakeMessage from the specified reader or buffer, length delimited.
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @returns {dos.HandshakeMessage} HandshakeMessage
+         */
+        HandshakeMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
+            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
+            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
+        };
+
+        /**
+         * Verifies a HandshakeMessage.
+         * @param {dos.HandshakeMessage|Object} message HandshakeMessage or plain object to verify
+         * @returns {?string} `null` if valid, otherwise the reason why it is not
+         */
+        HandshakeMessage.verify = (function() {
+            /* eslint-disable */
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = ["dos.ClientType"]);
+            return function verify(m) {
+                if(m['type']!==undefined){
+                    switch(m['type']){
+                        default:
+                            return"invalid value for field .dos.HandshakeMessage.type (enum value expected)"
+                        case 0:
+                        case 1:
+                            break
+                    }
+                }
+                return null
+            }
+            /* eslint-enable */
+        })();
+
+        return HandshakeMessage;
+    })();
+
+    /**
+     * ClientType values.
+     * @exports dos.ClientType
+     * @type {Object.<string,number>}
+     */
+    dos.ClientType = {
+
+        PLAYER: 0,
+        SPECTATOR: 1
     };
 
     /** @alias dos.PlayersMessage */
@@ -532,143 +845,6 @@ $root.dos = (function() {
 
         return PlayersMessage;
     })();
-
-    /** @alias dos.HandshakeMessage */
-    dos.HandshakeMessage = (function() {
-
-        /**
-         * Constructs a new HandshakeMessage.
-         * @exports dos.HandshakeMessage
-         * @constructor
-         * @param {Object} [properties] Properties to set
-         */
-        function HandshakeMessage(properties) {
-            if (properties) {
-                var keys = Object.keys(properties);
-                for (var i = 0; i < keys.length; ++i)
-                    this[keys[i]] = properties[keys[i]];
-            }
-        }
-
-        /** @alias dos.HandshakeMessage.prototype */
-        var $prototype = HandshakeMessage.prototype;
-
-        /**
-         * HandshakeMessage type.
-         * @name dos.HandshakeMessage#type
-         * @type {number}
-         */
-        $prototype["type"] = 0;
-
-        /**
-         * Encodes the specified HandshakeMessage.
-         * @function
-         * @param {dos.HandshakeMessage|Object} message HandshakeMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        HandshakeMessage.encode = (function() {
-            /* eslint-disable */
-            var Writer = $protobuf.Writer;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = ["dos.ClientType"]);
-            return function encode(m, w) {
-                w||(w=Writer.create())
-                if(m['type']!==undefined&&m['type']!==0)
-                    w.tag(1,0).uint32(m['type'])
-                return w
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Encodes the specified HandshakeMessage, length delimited.
-         * @param {dos.HandshakeMessage|Object} message HandshakeMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        HandshakeMessage.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a HandshakeMessage from the specified reader or buffer.
-         * @function
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {dos.HandshakeMessage} HandshakeMessage
-         */
-        HandshakeMessage.decode = (function() {
-            /* eslint-disable */
-            var Reader = $protobuf.Reader;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = ["dos.ClientType"]);
-            return function decode(r, l) {
-                r instanceof Reader||(r=Reader.create(r))
-                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.HandshakeMessage
-                while(r.pos<c){
-                    var t=r.tag()
-                    switch(t.id){
-                        case 1:
-                            m['type']=r.uint32()
-                            break
-                        default:
-                            r.skipType(t.wireType)
-                            break
-                    }
-                }
-                return m
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Decodes a HandshakeMessage from the specified reader or buffer, length delimited.
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @returns {dos.HandshakeMessage} HandshakeMessage
-         */
-        HandshakeMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
-            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
-            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
-        };
-
-        /**
-         * Verifies a HandshakeMessage.
-         * @param {dos.HandshakeMessage|Object} message HandshakeMessage or plain object to verify
-         * @returns {?string} `null` if valid, otherwise the reason why it is not
-         */
-        HandshakeMessage.verify = (function() {
-            /* eslint-disable */
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = ["dos.ClientType"]);
-            return function verify(m) {
-                if(m['type']!==undefined){
-                    switch(m['type']){
-                        default:
-                            return"invalid value for field .dos.HandshakeMessage.type (enum value expected)"
-                        case 0:
-                        case 1:
-                            break
-                    }
-                }
-                return null
-            }
-            /* eslint-enable */
-        })();
-
-        return HandshakeMessage;
-    })();
-
-    /**
-     * ClientType values.
-     * @exports dos.ClientType
-     * @type {Object.<string,number>}
-     */
-    dos.ClientType = {
-
-        PLAYER: 0,
-        SPECTATOR: 1
-    };
 
     /** @alias dos.PlayMessage */
     dos.PlayMessage = (function() {

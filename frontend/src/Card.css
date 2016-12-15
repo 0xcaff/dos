@@ -1,12 +1,21 @@
 @import url('https://fonts.googleapis.com/css?family=Nunito');
 
+.center {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
 .card {
+  position: relative;
+  width: 10em;
   border-radius: 0.125in;
+
   box-shadow: 0 0 0.2em 0 #ccc;
   overflow: hidden;
   user-select: none;
-  position: relative;
-  width: 10em;
   background: white;
 }
 
@@ -24,23 +33,25 @@
   bottom: 0;
   right: 0;
   left: 0;
-  overflow: hidden;
 
   /* 0.2 / 2.5 * 100% */
   margin: 8%;
   border-radius: 5% 3%;
+
+  overflow: hidden;
 }
 
 .card .background .oval {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateY(-50%) translateX(-50%) skew(-25deg);
+
   height: 80%;
   width: 90%;
   border-radius: 50%;
   background: white;
-  top: 50%;
-  left: 50%;
   overflow: hidden;
-  transform: translateY(-50%) translateX(-50%) skew(-25deg);
 }
 
 .oval .top, .oval .bottom {
@@ -89,12 +100,20 @@
   color: red;
 }
 
+.red .inner-card {
+  background: red;
+}
+
 .yellow .background, .oval .left.top {
   background: #fff000;
 }
 
 .yellow .number {
   color: yellow;
+}
+
+.yellow .inner-card {
+  background: yellow;
 }
 
 .green .background, .oval .right.top {
@@ -105,12 +124,20 @@
   color: green;
 }
 
+.green .inner-card {
+  background: green;
+}
+
 .blue .background, .oval .left.bottom {
   background: #2077d6;
 }
 
 .blue .number {
   color: blue;
+}
+
+.blue .inner-card {
+  background: blue;
 }
 
 .black .background {
@@ -135,3 +162,34 @@
   transform: rotateZ(180deg);
 }
 
+.inner-cards {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  width: 55%;
+  height: 55%;
+  margin: auto;
+}
+
+.inner-card {
+  position: absolute;
+  width: calc(calc(2/3) * 100%);
+  height: calc(calc(2/3) * 100%);
+
+  box-sizing: border-box;
+  border: 0.2em solid white;
+  border-radius: 5% 3%;
+}
+
+.inner-card:nth-child(1) {
+  top: 0;
+  right: 0;
+}
+
+.inner-card:nth-child(2) {
+  bottom: 0;
+  left: 0;
+}

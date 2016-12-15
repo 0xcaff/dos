@@ -1,5 +1,21 @@
 import React, { Component } from 'react';
 import './Card.css'
+import { dos } from './proto';
+
+const NumbersToColors = ((object) => {
+  let newObject = {};
+
+  for (let key in object) {
+    if (object.hasOwnProperty(key)) {
+      let value = object[key];
+      key = key.toLowerCase();
+
+      newObject[value] = key;
+    }
+  }
+  return newObject;
+
+})(dos.CardColor);
 
 class Card extends Component {
   constructor(props) {
@@ -18,32 +34,63 @@ class Card extends Component {
 
   render() {
     let oval = null;
-    if (this.props.type === 'wild') {
-      oval = (<div className='oval'>
-        <div className='top left' />
-        <div className='top right' />
-        <div className='bottom left' />
-        <div className='bottom right' />
-      </div>);
+    if (this.props.card.type === dos.CardType.WILD) {
+      oval = (
+        <div className='oval'>
+          <div className='top left' />
+          <div className='top right' />
+          <div className='bottom left' />
+          <div className='bottom right' />
+        </div>
+      );
     } else {
       oval = <div className='oval' />
     }
 
-    // TODO: Handle +4, +2, Skip and Reverse
+    let heroSymbol = null;
+    if (this.props.card.type === dos.CardType.DOUBLEDRAW) {
+      heroSymbol = (
+        <div className='inner-cards'>
+          <div className='inner-card' />
+          <div className='inner-card' />
+        </div>
+      );
+    } else if (this.props.card.type === dos.CardType.QUADDRAW) {
+      // TODO: Handle
+    } else if (this.props.card.type === dos.CardType.SKIP) {
+      // TODO: Handle
+      // TODO: Handle corners
+    } else if (this.props.card.type === dos.CardType.REVERSE) {
+      // TODO: Handle
+      // TODO: Handle Corners
+    }
+
     let bigNumber = null;
     let smallLNum = null;
     let smallRNum = null;
-    if (this.props.number !== undefined && this.props.number !== null) {
-      bigNumber = <div className='number big'>{ this.props.number }</div>
-      smallLNum = <div className='number small left'>{ this.props.number }</div>
-      smallRNum = <div className='number small right'>{ this.props.number }</div>
+
+    if (this.props.card.type === dos.CardType.QUADDRAW) {
+      let number = '+4';
+      smallLNum = <div className='number small left'>{ number }</div>
+      smallRNum = <div className='number small right'>{ number }</div>
+    } else if (this.props.card.type === dos.CardType.DOUBLEDRAW) {
+      let number = '+2';
+      smallLNum = <div className='number small left'>{ number }</div>
+      smallRNum = <div className='number small right'>{ number }</div>
+    } else if (this.props.card.number !== -1) {
+      let number = this.props.card.number;
+      bigNumber = <div className='number big'>{ number }</div>
+      smallLNum = <div className='number small left'>{ number }</div>
+      smallRNum = <div className='number small right'>{ number }</div>
     }
 
     return (
       <div ref={(element) => this.element = element}
-           className={['card', this.props.color].join(' ')} >
+           className={['card', NumbersToColors[this.props.card.color]].join(' ')} >
         <div className='background'>
           { oval }
+          { heroSymbol }
+
           { bigNumber }
           { smallLNum }
           { smallRNum }

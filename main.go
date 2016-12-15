@@ -8,10 +8,13 @@ import (
 
 	"github.com/caffinatedmonkey/dos/game"
 	dosProto "github.com/caffinatedmonkey/dos/proto"
+	"github.com/caffinatedmonkey/dos/utils"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 )
+
+var started = utils.NewBroadcaster()
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
@@ -33,6 +36,8 @@ func main() {
 		Addr:    *listen,
 		Handler: mux,
 	}
+
+	go started.StartBroadcasting()
 
 	errChan := make(chan error)
 	go func() {
@@ -63,6 +68,8 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 
 		// Wait for player to be ready
 		var name string
+		var cards *dos.Cards
+
 		for {
 			ready := dosProto.ReadyMessage{}
 			err := ReadMessage(conn, dosProto.MessageType_READY, &ready)
@@ -71,7 +78,7 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			_, err = game.NewPlayer(ready.Name)
+			cards, err = game.NewPlayer(ready.Name)
 			if err != nil {
 				fmt.Printf("[game] %s failed to join: %v\n", ready.Name, err)
 				// TODO: Send error downstream
@@ -83,10 +90,13 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		}
 
 		// Handle leaving
+		oldHandler := conn.CloseHandler()
 		conn.SetCloseHandler(func(code int, text string) error {
 			fmt.Printf("[game] player %s is leaving\n", name)
 			game.RemovePlayer(name)
-			return nil
+
+			// Close socket
+			return oldHandler(code, text)
 		})
 
 		// Send player list
@@ -98,7 +108,21 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		go SendPlayerJoins(conn, game)
 		go SendPlayerLeaves(conn, game)
 
-		conn.ReadMessage()
+		// Wait for game start
+		start := make(chan interface{})
+		started.AddListener(start)
+		<-start
+		fmt.Println(cards)
+
+		// Synchronize cards
+		changed := dosProto.CardsChangedMessage{}
+		additions := make([]*dosProto.Card, cards.Length())
+		for index, card := range cards.List {
+			actualCard := card.(dosProto.Card)
+			additions[index] = &actualCard
+		}
+		changed.Additions = additions
+		WriteMessage(conn, dosProto.MessageType_CARDS, &changed)
 
 	case dosProto.ClientType_SPECTATOR:
 		fmt.Println("[game] spectator joined")
@@ -121,6 +145,8 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Println("[game] spectator starting game")
+
+		started.Broadcast(nil)
 
 		// TODO: Handle start
 		// Tell players about their cards
@@ -160,7 +186,7 @@ func SendPlayerLeaves(conn *websocket.Conn, game *dos.Game) {
 		err := WriteMessage(conn, dosProto.MessageType_PLAYERS, &msg)
 		if err != nil {
 			// Socket is closed/something bad happened
-			game.PlayerJoined.RemoveListener(left)
+			game.PlayerLeft.RemoveListener(left)
 			close(left)
 			conn.Close()
 		}
