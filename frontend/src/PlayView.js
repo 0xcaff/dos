@@ -1,9 +1,11 @@
 import React, { Component } from 'react';
 import Cards from './Cards';
+import Card from './Cards';
 import Players from './Players';
 import './PlayView.css';
 
-// TODO: Last played card
+// TODO: Draw/Done could be one button depending on the state. After drawing,
+// you can't draw again and after playing, you must be done.
 class PlayView extends Component {
   render() {
     return (
@@ -19,6 +21,9 @@ class PlayView extends Component {
 
         <Players
           players={this.props.players} />
+
+        <Card
+          card={this.props.discard} />
       </div>
     );
   }

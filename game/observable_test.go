@@ -1,12 +1,15 @@
 package dos
 
-// import (
-// 	"github.com/caffinatedmonkey/dos/models"
-// 	"testing"
-// )
-//
-// // TODO: This test will fail if even one of the elements is not shuffled.
+import (
+	"testing"
+)
+
+// TODO: This test will fail if even one of the elements is not shuffled.
 // func TestShuffle(t *testing.T) {
+// 	newCards := NewCardCollection()
+// 	newCards.Populate()
+//
+// 	cards := dos.PopulateCards{}
 // 	l := dos.NewObservableList()
 // 	l.Push(1, 2, 3, 4, 5)
 // 	l.Shuffle()
@@ -20,7 +23,7 @@ package dos
 // 		}
 // 	}
 // }
-//
+
 // func TestPushing(t *testing.T) {
 // 	l := dos.NewObservableList()
 // 	l.Push(1)

@@ -3,6 +3,7 @@ import JoinView from './JoinView';
 import PlayView from './PlayView';
 import SpectatorView from './SpectatorView';
 import Players from './Players';
+import SocketStatus from './SocketStatus';
 import { dos } from './proto';
 
 // TODO: Connection state indicator
@@ -11,6 +12,7 @@ class App extends Component {
     view: (window.location.pathname.slice(1) || 'join'),
     players: [], // {name: string, active: boolean}
     cards: [],
+    discard: null,
   }
 
   constructor(props) {
@@ -26,6 +28,7 @@ class App extends Component {
     this.socket = new WebSocket(`ws://drone.lan:8080/socket`);
     this.socket.binaryType = 'arraybuffer';
     window.onunload = () => this.socket.close();
+
     this.socket.addEventListener('message', this.handleMessage);
   }
 
@@ -45,6 +48,10 @@ class App extends Component {
     );
 
     this.navigateTo('lobby');
+  }
+
+  startGame() {
+    encodeAndSend(this.socket, dos.MessageType.START);
   }
 
   playCard(card) {
@@ -124,34 +131,49 @@ class App extends Component {
 
           return player;
         }),
+        discard: turnMessage.lastPlayed,
       });
-
-      // TODO: Handle Disard Card
     }
   }
 
   render() {
+    let view;
     if (this.state.view === 'join') {
-      return <JoinView
+      view = <JoinView
                setName={this.setName} />
+
     } else if (this.state.view === 'lobby') {
-      return (<div className='flex-center'>
+      view = (<div className='flex-center'>
         <Players
           players={this.state.players} />
       </div>);
+
     } else if (this.state.view === 'play') {
-      return <PlayView
+      view = <PlayView
                cards={this.state.cards}
                players={this.state.players}
+               discard={this.state.discard}
                playCard={this.playCard} 
                drawCard={this.drawCard}
                turnDone={this.turnDone} />
+
     } else if (this.state.view === 'spectate') {
-      return <SpectatorView
-               socket={this.socket} />
+      view = <SpectatorView
+               socket={this.socket}
+               discard={this.state.discard}
+               players={this.state.players}
+               startGame={this.startGame} />
+
     } else if (this.state.view === 'scores') {
       // TODO: Implement
     }
+
+    return (
+      <div>
+        <SocketStatus socket={this.socket} />
+        { view }
+      </div>
+    );
   }
 
   navigateTo(destination) {

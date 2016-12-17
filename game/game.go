@@ -125,7 +125,7 @@ func (game *Game) NextPlayer() *Player {
 	switch lastCard.Type {
 	case proto.CardType_REVERSE:
 		game.isReversed = !game.isReversed
-		if len(game.Players) == 2 {
+		if len(game.players) == 2 {
 			increment += 1
 		}
 

@@ -21,11 +21,15 @@ class Card extends Component {
   constructor(props) {
     super(props);
 
-    this.onSwipe = props.onSwipe.bind(this);
+    if (props.onSwipe) {
+      this.onSwipe = props.onSwipe.bind(this);
+    }
   }
 
   componentDidMount() {
-    this.element.addEventListener('slip:swipe', this.onSwipe);
+    if (this.props.onSwipe) {
+      this.element.addEventListener('slip:swipe', this.onSwipe);
+    }
   }
 
   render() {

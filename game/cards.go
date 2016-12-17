@@ -6,8 +6,6 @@ import (
 
 	proto "github.com/caffinatedmonkey/dos/proto"
 	"github.com/caffinatedmonkey/dos/utils"
-
-	"fmt"
 )
 
 type Cards struct {
@@ -77,8 +75,11 @@ func (ol *Cards) PopN(n int) []proto.Card {
 	return elems
 }
 
-// TODO: Empty case
 func (cards *Cards) PopFront(n int) []proto.Card {
+	if len(cards.List) < n {
+		return nil
+	}
+
 	cards.RWMutex.Lock()
 	defer cards.RWMutex.Unlock()
 

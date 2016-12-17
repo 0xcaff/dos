@@ -1,4 +1,6 @@
 import React, { Component } from 'react';
+import Players from './Players';
+import Card from './Players';
 import { dos } from './proto';
 
 class SpectatorView extends Component {
@@ -13,13 +15,18 @@ class SpectatorView extends Component {
   }
 
   render() {
-    return (<button onClick={this.startGame}>Start Game</button>);
-  }
+    return (
+      <div>
+        <button onClick={this.props.startGame}>Start Game</button>
 
-  // TODO: Move this once structure is figured out
-  startGame() {
-    const message = dos.Envelope.encode({type: dos.MessageType.START}).finish();
-    this.props.socket.send(message);
+        <Players
+          players={this.props.players} />
+
+        <Card
+          card={this.props.discard} />
+
+      </div>
+    );
   }
 }
 
