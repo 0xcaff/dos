@@ -33,6 +33,10 @@ class Card extends Component {
   }
 
   render() {
+    if (!this.props.card) {
+      return null;
+    }
+
     let oval = null;
     if (this.props.card.type === dos.CardType.WILD) {
       oval = (

@@ -76,7 +76,7 @@ func (ol *Cards) PopN(n int) []proto.Card {
 }
 
 func (cards *Cards) PopFront(n int) []proto.Card {
-	if len(cards.List) < n {
+	if n > len(cards.List) {
 		return nil
 	}
 

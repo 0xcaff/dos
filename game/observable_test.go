@@ -1,8 +1,8 @@
 package dos
 
-import (
-	"testing"
-)
+// import (
+// 	"testing"
+// )
 
 // TODO: This test will fail if even one of the elements is not shuffled.
 // func TestShuffle(t *testing.T) {

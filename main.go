@@ -15,6 +15,8 @@ import (
 )
 
 // TODO: Websocket concurrent writes aren't allowed
+// TODO: Deletions aren't syncing
+// TODO: Report played cards right away
 
 var started = utils.NewBroadcaster()
 

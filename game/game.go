@@ -2,7 +2,6 @@ package dos
 
 import (
 	"errors"
-	// "fmt"
 	// "log"
 	"math/rand"
 	"sync"
@@ -155,7 +154,15 @@ func (game *Game) GetPlayer(n int) (*Player, int) {
 		n *= -1
 	}
 
-	current := (game.currentPlayerIndex + n) % len(game.players)
+	playersCount := len(game.players)
+
+	// This modulo operator isn't the same as the mathematical modulo operator.
+	// It returns negative values when the left side is negative.
+	current := (game.currentPlayerIndex + n) % playersCount
+	if current < 0 {
+		current += playersCount
+	}
+
 	return game.players[current], current
 }
 
@@ -184,7 +191,7 @@ func (game *Game) PlayCard(player *Player, id int32, color proto.CardColor) erro
 // Draws count cards into hand. Recycle's cards if needed
 func (game *Game) DrawCards(hand *Cards, count int) {
 	if count > len(game.Deck.List) {
-		// Not enough cards to draw. Recycle discard pile.
+		// Not enough cards to draw. Recycle entire discard pile.
 		recyclable := game.Discard.PopFront(len(game.Discard.List) - 1)
 		game.Deck.Push(recyclable...)
 		game.Deck.Shuffle()

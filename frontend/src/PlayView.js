@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import Cards from './Cards';
-import Card from './Cards';
+import Card from './Card';
 import Players from './Players';
 import './PlayView.css';
 

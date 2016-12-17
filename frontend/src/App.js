@@ -19,6 +19,7 @@ class App extends Component {
     super(props);
 
     this.setName = this.setName.bind(this);
+    this.startGame = this.startGame.bind(this);
     this.handleMessage = this.handleMessage.bind(this);
     this.playCard = this.playCard.bind(this);
     this.drawCard = this.drawCard.bind(this);

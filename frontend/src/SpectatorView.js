@@ -1,13 +1,14 @@
 import React, { Component } from 'react';
 import Players from './Players';
-import Card from './Players';
+import Card from './Card';
 import { dos } from './proto';
 
 class SpectatorView extends Component {
   constructor(props) {
     super(props);
 
-    this.startGame = this.startGame.bind(this);
+    this.startGame = this.props.startGame.bind(this);
+
     const handshake = dos.HandshakeMessage.encode({
       type: dos.ClientType.SPECTATOR
     }).finish();
