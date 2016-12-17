@@ -10,11 +10,13 @@ message Envelope {
 enum MessageType {
 	TURN = 0;
 	PLAYERS = 1;
-	DRAW = 2;
-	PLAY = 3;
-	CARDS = 4;
+	CARDS = 2;
 
-	READY = 5;
-	START = 6;
+	DRAW = 3;
+	PLAY = 4;
+	DONE = 5;
+
+	READY = 6;
+	START = 7;
 }
 

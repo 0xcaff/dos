@@ -12,5 +12,3 @@ message TurnMessage {
 	Card last_played = 2;
 }
 
-// TODO: Cards added by last player.
-

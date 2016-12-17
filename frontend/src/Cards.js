@@ -1,9 +1,17 @@
 import React, { Component } from 'react';
-import './Cards.css';
 import Card from './Card';
 import Slip from 'slipjs';
 
 class Cards extends Component {
+  constructor(props) {
+    super(props);
+
+    this.onSwipe = function(event) {
+      const card = this.props.card;
+      props.onSwipe(card);
+    }
+  }
+
   componentDidMount() {
     this.slip = new Slip(this.element);
   }
@@ -18,7 +26,8 @@ class Cards extends Component {
         {this.props.cards.map(card =>
           <Card
             card={card}
-            key={card.id} />
+            key={card.id}
+            onSwipe={this.onSwipe} />
         )}
       </div>
     );

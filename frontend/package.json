@@ -62,7 +62,6 @@
     "test": "node scripts/test.js --env=jsdom",
     "protobuf": "pbjs -t static-module -p .. -o ./src/proto.js -w commonjs ../proto/*.proto"
   },
-  "proxy": "http://drone.lan:8080",
   "jest": {
     "moduleFileExtensions": [
       "jsx",

@@ -387,6 +387,151 @@ $root.dos = (function() {
         return CardsChangedMessage;
     })();
 
+    /** @alias dos.PlayMessage */
+    dos.PlayMessage = (function() {
+
+        /**
+         * Constructs a new PlayMessage.
+         * @exports dos.PlayMessage
+         * @constructor
+         * @param {Object} [properties] Properties to set
+         */
+        function PlayMessage(properties) {
+            if (properties) {
+                var keys = Object.keys(properties);
+                for (var i = 0; i < keys.length; ++i)
+                    this[keys[i]] = properties[keys[i]];
+            }
+        }
+
+        /** @alias dos.PlayMessage.prototype */
+        var $prototype = PlayMessage.prototype;
+
+        /**
+         * PlayMessage id.
+         * @name dos.PlayMessage#id
+         * @type {number}
+         */
+        $prototype["id"] = 0;
+
+        /**
+         * PlayMessage color.
+         * @name dos.PlayMessage#color
+         * @type {number}
+         */
+        $prototype["color"] = 0;
+
+        /**
+         * Encodes the specified PlayMessage.
+         * @function
+         * @param {dos.PlayMessage|Object} message PlayMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        PlayMessage.encode = (function() {
+            /* eslint-disable */
+            var Writer = $protobuf.Writer;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null,"dos.CardColor"]);
+            return function encode(m, w) {
+                w||(w=Writer.create())
+                if(m['id']!==undefined&&m['id']!==0)
+                    w.tag(2,0).int32(m['id'])
+                if(m['color']!==undefined&&m['color']!==0)
+                    w.tag(3,0).uint32(m['color'])
+                return w
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Encodes the specified PlayMessage, length delimited.
+         * @param {dos.PlayMessage|Object} message PlayMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        PlayMessage.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a PlayMessage from the specified reader or buffer.
+         * @function
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {dos.PlayMessage} PlayMessage
+         */
+        PlayMessage.decode = (function() {
+            /* eslint-disable */
+            var Reader = $protobuf.Reader;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null,"dos.CardColor"]);
+            return function decode(r, l) {
+                r instanceof Reader||(r=Reader.create(r))
+                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.PlayMessage
+                while(r.pos<c){
+                    var t=r.tag()
+                    switch(t.id){
+                        case 2:
+                            m['id']=r.int32()
+                            break
+                        case 3:
+                            m['color']=r.uint32()
+                            break
+                        default:
+                            r.skipType(t.wireType)
+                            break
+                    }
+                }
+                return m
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Decodes a PlayMessage from the specified reader or buffer, length delimited.
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @returns {dos.PlayMessage} PlayMessage
+         */
+        PlayMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
+            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
+            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
+        };
+
+        /**
+         * Verifies a PlayMessage.
+         * @param {dos.PlayMessage|Object} message PlayMessage or plain object to verify
+         * @returns {?string} `null` if valid, otherwise the reason why it is not
+         */
+        PlayMessage.verify = (function() {
+            /* eslint-disable */
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null,"dos.CardColor"]);
+            return function verify(m) {
+                if(m['id']!==undefined){
+                    if(!util.isInteger(m['id']))
+                        return"invalid value for field .dos.PlayMessage.id (integer expected)"
+                }
+                if(m['color']!==undefined){
+                    switch(m['color']){
+                        default:
+                            return"invalid value for field .dos.PlayMessage.color (enum value expected)"
+                        case 0:
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                            break
+                    }
+                }
+                return null
+            }
+            /* eslint-enable */
+        })();
+
+        return PlayMessage;
+    })();
+
     /** @alias dos.Envelope */
     dos.Envelope = (function() {
 
@@ -519,6 +664,7 @@ $root.dos = (function() {
                         case 4:
                         case 5:
                         case 6:
+                        case 7:
                             break
                     }
                 }
@@ -543,12 +689,151 @@ $root.dos = (function() {
 
         TURN: 0,
         PLAYERS: 1,
-        DRAW: 2,
-        PLAY: 3,
-        CARDS: 4,
-        READY: 5,
-        START: 6
+        CARDS: 2,
+        DRAW: 3,
+        PLAY: 4,
+        DONE: 5,
+        READY: 6,
+        START: 7
     };
+
+    /** @alias dos.TurnMessage */
+    dos.TurnMessage = (function() {
+
+        /**
+         * Constructs a new TurnMessage.
+         * @exports dos.TurnMessage
+         * @constructor
+         * @param {Object} [properties] Properties to set
+         */
+        function TurnMessage(properties) {
+            if (properties) {
+                var keys = Object.keys(properties);
+                for (var i = 0; i < keys.length; ++i)
+                    this[keys[i]] = properties[keys[i]];
+            }
+        }
+
+        /** @alias dos.TurnMessage.prototype */
+        var $prototype = TurnMessage.prototype;
+
+        /**
+         * TurnMessage player.
+         * @name dos.TurnMessage#player
+         * @type {string}
+         */
+        $prototype["player"] = "";
+
+        /**
+         * TurnMessage lastPlayed.
+         * @name dos.TurnMessage#lastPlayed
+         * @type {dos.Card}
+         */
+        $prototype["lastPlayed"] = null;
+
+        /**
+         * Encodes the specified TurnMessage.
+         * @function
+         * @param {dos.TurnMessage|Object} message TurnMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        TurnMessage.encode = (function() {
+            /* eslint-disable */
+            var Writer = $protobuf.Writer;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null,"dos.Card"]);
+            return function encode(m, w) {
+                w||(w=Writer.create())
+                if(m['player']!==undefined&&m['player']!=="")
+                    w.tag(1,2).string(m['player'])
+                if(m['lastPlayed']!==undefined&&m['lastPlayed']!==null)
+                    types[1].encode(m['lastPlayed'],w.fork()).len&&w.ldelim(2)||w.reset()
+                return w
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Encodes the specified TurnMessage, length delimited.
+         * @param {dos.TurnMessage|Object} message TurnMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        TurnMessage.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a TurnMessage from the specified reader or buffer.
+         * @function
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {dos.TurnMessage} TurnMessage
+         */
+        TurnMessage.decode = (function() {
+            /* eslint-disable */
+            var Reader = $protobuf.Reader;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null,"dos.Card"]);
+            return function decode(r, l) {
+                r instanceof Reader||(r=Reader.create(r))
+                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.TurnMessage
+                while(r.pos<c){
+                    var t=r.tag()
+                    switch(t.id){
+                        case 1:
+                            m['player']=r.string()
+                            break
+                        case 2:
+                            m['lastPlayed']=types[1].decode(r,r.uint32())
+                            break
+                        default:
+                            r.skipType(t.wireType)
+                            break
+                    }
+                }
+                return m
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Decodes a TurnMessage from the specified reader or buffer, length delimited.
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @returns {dos.TurnMessage} TurnMessage
+         */
+        TurnMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
+            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
+            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
+        };
+
+        /**
+         * Verifies a TurnMessage.
+         * @param {dos.TurnMessage|Object} message TurnMessage or plain object to verify
+         * @returns {?string} `null` if valid, otherwise the reason why it is not
+         */
+        TurnMessage.verify = (function() {
+            /* eslint-disable */
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null,"dos.Card"]);
+            return function verify(m) {
+                if(m['player']!==undefined){
+                    if(!util.isString(m['player']))
+                        return"invalid value for field .dos.TurnMessage.player (string expected)"
+                }
+                if(m['lastPlayed']!==undefined){
+                    var r;
+                    if(r=types[1].verify(m['lastPlayed']))
+                        return r
+                }
+                return null
+            }
+            /* eslint-enable */
+        })();
+
+        return TurnMessage;
+    })();
 
     /** @alias dos.HandshakeMessage */
     dos.HandshakeMessage = (function() {
@@ -686,6 +971,127 @@ $root.dos = (function() {
         PLAYER: 0,
         SPECTATOR: 1
     };
+
+    /** @alias dos.ReadyMessage */
+    dos.ReadyMessage = (function() {
+
+        /**
+         * Constructs a new ReadyMessage.
+         * @exports dos.ReadyMessage
+         * @constructor
+         * @param {Object} [properties] Properties to set
+         */
+        function ReadyMessage(properties) {
+            if (properties) {
+                var keys = Object.keys(properties);
+                for (var i = 0; i < keys.length; ++i)
+                    this[keys[i]] = properties[keys[i]];
+            }
+        }
+
+        /** @alias dos.ReadyMessage.prototype */
+        var $prototype = ReadyMessage.prototype;
+
+        /**
+         * ReadyMessage name.
+         * @name dos.ReadyMessage#name
+         * @type {string}
+         */
+        $prototype["name"] = "";
+
+        /**
+         * Encodes the specified ReadyMessage.
+         * @function
+         * @param {dos.ReadyMessage|Object} message ReadyMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        ReadyMessage.encode = (function() {
+            /* eslint-disable */
+            var Writer = $protobuf.Writer;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null]);
+            return function encode(m, w) {
+                w||(w=Writer.create())
+                if(m['name']!==undefined&&m['name']!=="")
+                    w.tag(1,2).string(m['name'])
+                return w
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Encodes the specified ReadyMessage, length delimited.
+         * @param {dos.ReadyMessage|Object} message ReadyMessage or plain object to encode
+         * @param {Writer} [writer] Writer to encode to
+         * @returns {Writer} Writer
+         */
+        ReadyMessage.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a ReadyMessage from the specified reader or buffer.
+         * @function
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {dos.ReadyMessage} ReadyMessage
+         */
+        ReadyMessage.decode = (function() {
+            /* eslint-disable */
+            var Reader = $protobuf.Reader;
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null]);
+            return function decode(r, l) {
+                r instanceof Reader||(r=Reader.create(r))
+                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.ReadyMessage
+                while(r.pos<c){
+                    var t=r.tag()
+                    switch(t.id){
+                        case 1:
+                            m['name']=r.string()
+                            break
+                        default:
+                            r.skipType(t.wireType)
+                            break
+                    }
+                }
+                return m
+            }
+            /* eslint-enable */
+        })();
+
+        /**
+         * Decodes a ReadyMessage from the specified reader or buffer, length delimited.
+         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
+         * @returns {dos.ReadyMessage} ReadyMessage
+         */
+        ReadyMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
+            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
+            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
+        };
+
+        /**
+         * Verifies a ReadyMessage.
+         * @param {dos.ReadyMessage|Object} message ReadyMessage or plain object to verify
+         * @returns {?string} `null` if valid, otherwise the reason why it is not
+         */
+        ReadyMessage.verify = (function() {
+            /* eslint-disable */
+            var util = $protobuf.util;
+            var types; $lazyTypes.push(types = [null]);
+            return function verify(m) {
+                if(m['name']!==undefined){
+                    if(!util.isString(m['name']))
+                        return"invalid value for field .dos.ReadyMessage.name (string expected)"
+                }
+                return null
+            }
+            /* eslint-enable */
+        })();
+
+        return ReadyMessage;
+    })();
 
     /** @alias dos.PlayersMessage */
     dos.PlayersMessage = (function() {
@@ -844,410 +1250,6 @@ $root.dos = (function() {
         })();
 
         return PlayersMessage;
-    })();
-
-    /** @alias dos.PlayMessage */
-    dos.PlayMessage = (function() {
-
-        /**
-         * Constructs a new PlayMessage.
-         * @exports dos.PlayMessage
-         * @constructor
-         * @param {Object} [properties] Properties to set
-         */
-        function PlayMessage(properties) {
-            if (properties) {
-                var keys = Object.keys(properties);
-                for (var i = 0; i < keys.length; ++i)
-                    this[keys[i]] = properties[keys[i]];
-            }
-        }
-
-        /** @alias dos.PlayMessage.prototype */
-        var $prototype = PlayMessage.prototype;
-
-        /**
-         * PlayMessage card.
-         * @name dos.PlayMessage#card
-         * @type {number}
-         */
-        $prototype["card"] = 0;
-
-        /**
-         * PlayMessage color.
-         * @name dos.PlayMessage#color
-         * @type {number}
-         */
-        $prototype["color"] = 0;
-
-        /**
-         * Encodes the specified PlayMessage.
-         * @function
-         * @param {dos.PlayMessage|Object} message PlayMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        PlayMessage.encode = (function() {
-            /* eslint-disable */
-            var Writer = $protobuf.Writer;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.CardColor"]);
-            return function encode(m, w) {
-                w||(w=Writer.create())
-                if(m['card']!==undefined&&m['card']!==0)
-                    w.tag(2,0).int32(m['card'])
-                if(m['color']!==undefined&&m['color']!==0)
-                    w.tag(3,0).uint32(m['color'])
-                return w
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Encodes the specified PlayMessage, length delimited.
-         * @param {dos.PlayMessage|Object} message PlayMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        PlayMessage.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a PlayMessage from the specified reader or buffer.
-         * @function
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {dos.PlayMessage} PlayMessage
-         */
-        PlayMessage.decode = (function() {
-            /* eslint-disable */
-            var Reader = $protobuf.Reader;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.CardColor"]);
-            return function decode(r, l) {
-                r instanceof Reader||(r=Reader.create(r))
-                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.PlayMessage
-                while(r.pos<c){
-                    var t=r.tag()
-                    switch(t.id){
-                        case 2:
-                            m['card']=r.int32()
-                            break
-                        case 3:
-                            m['color']=r.uint32()
-                            break
-                        default:
-                            r.skipType(t.wireType)
-                            break
-                    }
-                }
-                return m
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Decodes a PlayMessage from the specified reader or buffer, length delimited.
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @returns {dos.PlayMessage} PlayMessage
-         */
-        PlayMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
-            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
-            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
-        };
-
-        /**
-         * Verifies a PlayMessage.
-         * @param {dos.PlayMessage|Object} message PlayMessage or plain object to verify
-         * @returns {?string} `null` if valid, otherwise the reason why it is not
-         */
-        PlayMessage.verify = (function() {
-            /* eslint-disable */
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.CardColor"]);
-            return function verify(m) {
-                if(m['card']!==undefined){
-                    if(!util.isInteger(m['card']))
-                        return"invalid value for field .dos.PlayMessage.card (integer expected)"
-                }
-                if(m['color']!==undefined){
-                    switch(m['color']){
-                        default:
-                            return"invalid value for field .dos.PlayMessage.color (enum value expected)"
-                        case 0:
-                        case 1:
-                        case 2:
-                        case 3:
-                        case 4:
-                            break
-                    }
-                }
-                return null
-            }
-            /* eslint-enable */
-        })();
-
-        return PlayMessage;
-    })();
-
-    /** @alias dos.ReadyMessage */
-    dos.ReadyMessage = (function() {
-
-        /**
-         * Constructs a new ReadyMessage.
-         * @exports dos.ReadyMessage
-         * @constructor
-         * @param {Object} [properties] Properties to set
-         */
-        function ReadyMessage(properties) {
-            if (properties) {
-                var keys = Object.keys(properties);
-                for (var i = 0; i < keys.length; ++i)
-                    this[keys[i]] = properties[keys[i]];
-            }
-        }
-
-        /** @alias dos.ReadyMessage.prototype */
-        var $prototype = ReadyMessage.prototype;
-
-        /**
-         * ReadyMessage name.
-         * @name dos.ReadyMessage#name
-         * @type {string}
-         */
-        $prototype["name"] = "";
-
-        /**
-         * Encodes the specified ReadyMessage.
-         * @function
-         * @param {dos.ReadyMessage|Object} message ReadyMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        ReadyMessage.encode = (function() {
-            /* eslint-disable */
-            var Writer = $protobuf.Writer;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null]);
-            return function encode(m, w) {
-                w||(w=Writer.create())
-                if(m['name']!==undefined&&m['name']!=="")
-                    w.tag(1,2).string(m['name'])
-                return w
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Encodes the specified ReadyMessage, length delimited.
-         * @param {dos.ReadyMessage|Object} message ReadyMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        ReadyMessage.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a ReadyMessage from the specified reader or buffer.
-         * @function
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {dos.ReadyMessage} ReadyMessage
-         */
-        ReadyMessage.decode = (function() {
-            /* eslint-disable */
-            var Reader = $protobuf.Reader;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null]);
-            return function decode(r, l) {
-                r instanceof Reader||(r=Reader.create(r))
-                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.ReadyMessage
-                while(r.pos<c){
-                    var t=r.tag()
-                    switch(t.id){
-                        case 1:
-                            m['name']=r.string()
-                            break
-                        default:
-                            r.skipType(t.wireType)
-                            break
-                    }
-                }
-                return m
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Decodes a ReadyMessage from the specified reader or buffer, length delimited.
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @returns {dos.ReadyMessage} ReadyMessage
-         */
-        ReadyMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
-            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
-            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
-        };
-
-        /**
-         * Verifies a ReadyMessage.
-         * @param {dos.ReadyMessage|Object} message ReadyMessage or plain object to verify
-         * @returns {?string} `null` if valid, otherwise the reason why it is not
-         */
-        ReadyMessage.verify = (function() {
-            /* eslint-disable */
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null]);
-            return function verify(m) {
-                if(m['name']!==undefined){
-                    if(!util.isString(m['name']))
-                        return"invalid value for field .dos.ReadyMessage.name (string expected)"
-                }
-                return null
-            }
-            /* eslint-enable */
-        })();
-
-        return ReadyMessage;
-    })();
-
-    /** @alias dos.TurnMessage */
-    dos.TurnMessage = (function() {
-
-        /**
-         * Constructs a new TurnMessage.
-         * @exports dos.TurnMessage
-         * @constructor
-         * @param {Object} [properties] Properties to set
-         */
-        function TurnMessage(properties) {
-            if (properties) {
-                var keys = Object.keys(properties);
-                for (var i = 0; i < keys.length; ++i)
-                    this[keys[i]] = properties[keys[i]];
-            }
-        }
-
-        /** @alias dos.TurnMessage.prototype */
-        var $prototype = TurnMessage.prototype;
-
-        /**
-         * TurnMessage player.
-         * @name dos.TurnMessage#player
-         * @type {string}
-         */
-        $prototype["player"] = "";
-
-        /**
-         * TurnMessage lastPlayed.
-         * @name dos.TurnMessage#lastPlayed
-         * @type {dos.Card}
-         */
-        $prototype["lastPlayed"] = null;
-
-        /**
-         * Encodes the specified TurnMessage.
-         * @function
-         * @param {dos.TurnMessage|Object} message TurnMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        TurnMessage.encode = (function() {
-            /* eslint-disable */
-            var Writer = $protobuf.Writer;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.Card"]);
-            return function encode(m, w) {
-                w||(w=Writer.create())
-                if(m['player']!==undefined&&m['player']!=="")
-                    w.tag(1,2).string(m['player'])
-                if(m['lastPlayed']!==undefined&&m['lastPlayed']!==null)
-                    types[1].encode(m['lastPlayed'],w.fork()).len&&w.ldelim(2)||w.reset()
-                return w
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Encodes the specified TurnMessage, length delimited.
-         * @param {dos.TurnMessage|Object} message TurnMessage or plain object to encode
-         * @param {Writer} [writer] Writer to encode to
-         * @returns {Writer} Writer
-         */
-        TurnMessage.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a TurnMessage from the specified reader or buffer.
-         * @function
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {dos.TurnMessage} TurnMessage
-         */
-        TurnMessage.decode = (function() {
-            /* eslint-disable */
-            var Reader = $protobuf.Reader;
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.Card"]);
-            return function decode(r, l) {
-                r instanceof Reader||(r=Reader.create(r))
-                var c=l===undefined?r.len:r.pos+l,m=new $root.dos.TurnMessage
-                while(r.pos<c){
-                    var t=r.tag()
-                    switch(t.id){
-                        case 1:
-                            m['player']=r.string()
-                            break
-                        case 2:
-                            m['lastPlayed']=types[1].decode(r,r.uint32())
-                            break
-                        default:
-                            r.skipType(t.wireType)
-                            break
-                    }
-                }
-                return m
-            }
-            /* eslint-enable */
-        })();
-
-        /**
-         * Decodes a TurnMessage from the specified reader or buffer, length delimited.
-         * @param {Reader|Uint8Array} readerOrBuffer Reader or buffer to decode from
-         * @returns {dos.TurnMessage} TurnMessage
-         */
-        TurnMessage.decodeDelimited = function decodeDelimited(readerOrBuffer) {
-            readerOrBuffer = readerOrBuffer instanceof $protobuf.Reader ? readerOrBuffer : $protobuf.Reader(readerOrBuffer);
-            return this.decode(readerOrBuffer, readerOrBuffer.uint32());
-        };
-
-        /**
-         * Verifies a TurnMessage.
-         * @param {dos.TurnMessage|Object} message TurnMessage or plain object to verify
-         * @returns {?string} `null` if valid, otherwise the reason why it is not
-         */
-        TurnMessage.verify = (function() {
-            /* eslint-disable */
-            var util = $protobuf.util;
-            var types; $lazyTypes.push(types = [null,"dos.Card"]);
-            return function verify(m) {
-                if(m['player']!==undefined){
-                    if(!util.isString(m['player']))
-                        return"invalid value for field .dos.TurnMessage.player (string expected)"
-                }
-                if(m['lastPlayed']!==undefined){
-                    var r;
-                    if(r=types[1].verify(m['lastPlayed']))
-                        return r
-                }
-                return null
-            }
-            /* eslint-enable */
-        })();
-
-        return TurnMessage;
     })();
 
     return dos;

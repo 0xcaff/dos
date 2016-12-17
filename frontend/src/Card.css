@@ -10,8 +10,8 @@
 
 .card {
   position: relative;
-  width: 10em;
   border-radius: 0.125in;
+  margin: 0.5em 0;
 
   box-shadow: 0 0 0.2em 0 #ccc;
   overflow: hidden;

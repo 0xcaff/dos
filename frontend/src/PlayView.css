@@ -1,0 +1,20 @@
+.play-view {
+  width: 100%;
+  max-width: 15em;
+
+  margin: 0 auto;
+}
+
+.buttons {
+  display: flex;
+}
+
+.buttons button {
+  width: 50%;
+  flex: 1;
+}
+
+.buttons button:nth-child(1) {
+  margin-right: 1em;
+}
+

@@ -1,20 +1,37 @@
 import React, { Component } from 'react';
+import './JoinView.css'
 
 class JoinView extends Component {
+  constructor(props) {
+    super(props);
+
+    this.handleSubmit = this.handleSubmit.bind(this);
+  }
+
   render() {
     return (
-      <div>
-        <input
-          type='text'
-          placeholder='Enter name'
-          ref={(input) => this.input = input} />
+      <div className='flex-center'>
+        <div className='join-view'>
+          <h1>Dos</h1>
 
-        <button
-          onClick={() => this.props.setName(this.input.value)}>
-            Join Game
-        </button>
+          <form onSubmit={this.handleSubmit}>
+            <input
+              type='text'
+              placeholder='Name'
+              ref={(input) => this.input = input} />
+
+            <button>Join Game</button>
+          </form>
+        </div>
       </div>
     );
+  }
+
+  handleSubmit(event) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    this.props.setName(this.input.value);
   }
 }
 

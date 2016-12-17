@@ -16,6 +16,7 @@ class SpectatorView extends Component {
     return (<button onClick={this.startGame}>Start Game</button>);
   }
 
+  // TODO: Move this once structure is figured out
   startGame() {
     const message = dos.Envelope.encode({type: dos.MessageType.START}).finish();
     this.props.socket.send(message);
