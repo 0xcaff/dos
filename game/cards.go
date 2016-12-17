@@ -65,8 +65,8 @@ func (ol *Cards) PopN(n int) []proto.Card {
 	// Get Last n Elements
 	elems := ol.List[lastElementIndex:]
 
-	for _, elem := range elems {
-		ol.Deletions.Broadcast(elem.Id)
+	for index := range elems {
+		ol.Deletions.Broadcast(elems[index].Id)
 	}
 
 	// Remove Last n Elements
@@ -86,8 +86,8 @@ func (cards *Cards) PopFront(n int) []proto.Card {
 	removing := cards.List[:n]
 	cards.List = cards.List[n:]
 
-	for _, removed := range removing {
-		cards.Deletions.Broadcast(removed)
+	for index := range removing {
+		cards.Deletions.Broadcast(removing[index].Id)
 	}
 
 	return removing
@@ -125,6 +125,10 @@ func (cards *Cards) PopId(id int32) *proto.Card {
 	}
 
 	cards.List = newCards
+	if foundCard != nil {
+		cards.Deletions.Broadcast(foundCard.Id)
+	}
+
 	return foundCard
 }
 

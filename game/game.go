@@ -166,6 +166,7 @@ func (game *Game) GetPlayer(n int) (*Player, int) {
 	return game.players[current], current
 }
 
+// TODO: Don't pop card unless you can play it
 func (game *Game) PlayCard(player *Player, id int32, color proto.CardColor) error {
 	card := player.Cards.PopId(id)
 	if card == nil {

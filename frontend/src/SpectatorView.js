@@ -20,12 +20,28 @@ class SpectatorView extends Component {
       <div>
         <button onClick={this.props.startGame}>Start Game</button>
 
-        <Players
-          players={this.props.players} />
+        <div
+          style={{
+            'display': 'flex',
+            'justifyContent': 'space-around',
+          }}>
+          <div
+            style={{
+              'alignSelf': 'flex-start',
+            }}>
+            <Players
+              players={this.props.players} />
+          </div>
 
-        <Card
-          card={this.props.discard} />
-
+          <div
+            style={{
+              'alignSelf': 'center',
+              'width': '10em',
+            }}>
+            <Card
+              card={this.props.discard} />
+          </div>
+        </div>
       </div>
     );
   }
