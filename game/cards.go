@@ -107,30 +107,52 @@ func (cards *Cards) Shuffle() {
 	}
 }
 
-func (cards *Cards) PopId(id int32) *proto.Card {
-	cards.RWMutex.Lock()
-	defer cards.RWMutex.Unlock()
-
-	newCards := make([]proto.Card, len(cards.List))
-	var foundCard *proto.Card
-	i := 0
+func (cards *Cards) FindById(id int32) (*proto.Card, int) {
+	cards.RWMutex.RLock()
+	defer cards.RWMutex.RUnlock()
 	for index := range cards.List {
-		card := cards.List[index]
+		card := &cards.List[index]
 		if card.Id == id {
-			foundCard = &card
-		} else {
-			newCards[i] = card
-			i++
+			return card, index
 		}
 	}
 
-	cards.List = newCards
-	if foundCard != nil {
-		cards.Deletions.Broadcast(foundCard.Id)
-	}
-
-	return foundCard
+	return nil, -1
 }
+
+func (cards *Cards) RemoveCard(index int) {
+	cards.RWMutex.Lock()
+	defer cards.RWMutex.Unlock()
+
+	deleting := cards.List[index]
+	cards.List = append(cards.List[:index], cards.List[index+1:]...)
+	cards.Deletions.Broadcast(deleting.Id)
+}
+
+// func (cards *Cards) PopId(id int32) *proto.Card {
+// 	cards.RWMutex.Lock()
+// 	defer cards.RWMutex.Unlock()
+//
+// 	newCards := make([]proto.Card, len(cards.List))
+// 	var foundCard *proto.Card
+// 	i := 0
+// 	for index := range cards.List {
+// 		card := cards.List[index]
+// 		if card.Id == id {
+// 			foundCard = &card
+// 		} else {
+// 			newCards[i] = card
+// 			i++
+// 		}
+// 	}
+//
+// 	cards.List = newCards
+// 	if foundCard != nil {
+// 		cards.Deletions.Broadcast(foundCard.Id)
+// 	}
+//
+// 	return foundCard
+// }
 
 func swap(f, t int, array []proto.Card) {
 	array[t], array[f] = array[f], array[t]
@@ -142,13 +164,6 @@ func swap(f, t int, array []proto.Card) {
 // 	} else {
 // 		panic("Index out of bounds")
 // 	}
-// }
-//
-// func (ol *Cards) RemoveElement(index int) {
-// 	ol.RWMutex.Lock()
-// 	ol.Deletions.Broadcast(index)
-// 	ol.list = append(ol.list[:index], ol.list[index+1:]...)
-// 	ol.RWMutex.Unlock()
 // }
 
 // Creates a new deck and populates it with the standard playing cards
@@ -237,16 +252,18 @@ func (cards *Cards) Populate() {
 }
 
 func CanCoverCard(baseCard, otherCard *proto.Card) bool {
+	specialsMatch := baseCard.Type == otherCard.Type
+	bothAreNormal := specialsMatch && baseCard.Type == proto.CardType_NORMAL
+
 	colorsMatch := baseCard.Color == otherCard.Color
 	numbersMatch := baseCard.Number == otherCard.Number
 
-	if colorsMatch || numbersMatch {
+	if colorsMatch || (numbersMatch && bothAreNormal) {
 		return true
 	}
 
-	// If not normal and specials match
-	specialsMatch := baseCard.Type == otherCard.Type
-	if baseCard.Type != proto.CardType_NORMAL && specialsMatch {
+	bothAreNotNormal := specialsMatch && baseCard.Type != proto.CardType_NORMAL
+	if specialsMatch && bothAreNotNormal {
 		return true
 	}
 

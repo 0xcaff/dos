@@ -30,7 +30,10 @@ type Game struct {
 
 	currentPlayerIndex int
 	isReversed         bool
-	// lastPlayerPlayed   bool
+
+	// Whether the action card of the action card at the top of the discard pile
+	// has been executed.
+	lastCardPlayed bool
 }
 
 // Creates a new game an initalizes its values
@@ -119,28 +122,34 @@ func (game *Game) NextPlayer() *Player {
 	}
 
 	increment := 1
-	lastCard := game.Discard.List[len(game.Discard.List)-1]
 
-	switch lastCard.Type {
-	case proto.CardType_REVERSE:
-		game.isReversed = !game.isReversed
-		if len(game.players) == 2 {
+	if !game.lastCardPlayed {
+		// Don't handle special actions more than once.
+		lastCard := game.Discard.List[len(game.Discard.List)-1]
+
+		switch lastCard.Type {
+		case proto.CardType_REVERSE:
+			game.isReversed = !game.isReversed
+			if len(game.players) == 2 {
+				increment += 1
+			}
+
+		case proto.CardType_SKIP:
 			increment += 1
+
+		case proto.CardType_DOUBLEDRAW:
+			increment += 1
+			player, _ := game.GetPlayer(1)
+			game.DrawCards(&player.Cards, 2)
+
+		case proto.CardType_QUADDRAW:
+			increment += 1
+			player, _ := game.GetPlayer(1)
+			game.DrawCards(&player.Cards, 4)
+
 		}
 
-	case proto.CardType_SKIP:
-		increment += 1
-
-	case proto.CardType_DOUBLEDRAW:
-		increment += 1
-		player, _ := game.GetPlayer(1)
-		game.DrawCards(&player.Cards, 2)
-
-	case proto.CardType_QUADDRAW:
-		increment += 1
-		player, _ := game.GetPlayer(1)
-		game.DrawCards(&player.Cards, 4)
-
+		game.lastCardPlayed = true
 	}
 
 	nextPlayer, index := game.GetPlayer(increment)
@@ -166,9 +175,8 @@ func (game *Game) GetPlayer(n int) (*Player, int) {
 	return game.players[current], current
 }
 
-// TODO: Don't pop card unless you can play it
 func (game *Game) PlayCard(player *Player, id int32, color proto.CardColor) error {
-	card := player.Cards.PopId(id)
+	card, index := player.Cards.FindById(id)
 	if card == nil {
 		return errors.New("Card is not owned by player")
 	}
@@ -185,7 +193,9 @@ func (game *Game) PlayCard(player *Player, id int32, color proto.CardColor) erro
 		card.Color = color
 	}
 
+	game.lastCardPlayed = false
 	game.Discard.Push(*card)
+	player.Cards.RemoveCard(index)
 	return nil
 }
 

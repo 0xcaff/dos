@@ -1,3 +1,4 @@
+//go:generate protoc --go_out=. proto/card.proto proto/handshake.proto proto/ready.proto proto/changed.proto proto/players.proto proto/turn.proto proto/envelope.proto proto/play.proto
 package main
 
 import (
@@ -15,7 +16,6 @@ import (
 )
 
 // TODO: Websocket concurrent writes aren't allowed
-// TODO: Deletions aren't syncing
 // TODO: Report played cards right away
 
 var started = utils.NewBroadcaster()

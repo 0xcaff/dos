@@ -76,3 +76,19 @@ func TestCoverDifferentColor(t *testing.T) {
 	}
 
 }
+
+func TestSpecialCover(t *testing.T) {
+	baseCard := &proto.Card{
+		Type:  proto.CardType_REVERSE,
+		Color: proto.CardColor_RED,
+	}
+
+	coverCard := &proto.Card{
+		Type:  proto.CardType_DOUBLEDRAW,
+		Color: proto.CardColor_GREEN,
+	}
+
+	if CanCoverCard(baseCard, coverCard) != false {
+		t.Fail()
+	}
+}
