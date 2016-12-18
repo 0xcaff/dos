@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/caffinatedmonkey/dos/game"
 	dosProto "github.com/caffinatedmonkey/dos/proto"
@@ -15,9 +16,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// TODO: Websocket concurrent writes aren't allowed
-// TODO: Report played cards right away
-
+// TODO: Radomness sucks
+// TODO: Matchmaking
+// TODO: When a player plays a card before their turn, when it is their turn the
+// card is played. This shouldn't happen.
+// TODO: Fix explosive disconnects
 var started = utils.NewBroadcaster()
 
 var upgrader = websocket.Upgrader{
@@ -57,11 +60,13 @@ func main() {
 func handleSocket(rw http.ResponseWriter, r *http.Request) {
 	fmt.Println("[websocket] new connection")
 
-	conn, err := upgrader.Upgrade(rw, r, nil)
+	rawConn, err := upgrader.Upgrade(rw, r, nil)
 	if err != nil {
 		fmt.Println("[websocket] connection initialization failed", err)
 		return
 	}
+
+	conn := &LockedSocket{Conn: rawConn}
 
 	handshake := dosProto.HandshakeMessage{}
 	Read(conn, &handshake)
@@ -99,7 +104,10 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			game.RemovePlayer(player)
 
 			// Close socket
-			return oldHandler(code, text)
+			conn.WriteLock.Lock()
+			ret := oldHandler(code, text)
+			conn.WriteLock.Unlock()
+			return ret
 		})
 
 		// Send player list
@@ -153,9 +161,7 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Println("[game] spectator starting game")
-
 		go SendTurnChanged(conn, game)
-
 		started.Broadcast(nil)
 
 		for {
@@ -164,89 +170,66 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			game.Turn.Broadcast(player.Name)
 			<-player.TurnDone
 
-			// TODO: Check if game is done
+			if len(player.Cards.List) == 0 {
+				// Game Done!
+				// TODO:
+				//  Send message to players and spectators
+				//  Cleanup
+				return
+			}
 		}
 	}
 }
 
-func SendPlayerJoins(conn *websocket.Conn, game *dos.Game) {
-	joined := make(chan interface{})
-	game.PlayerJoined.AddListener(joined)
-	go game.PlayerJoined.StartBroadcasting()
-
-	for newPlayerName := range joined {
-		msg := dosProto.PlayersMessage{}
-		msg.Addition = newPlayerName.(string)
-
-		err := WriteMessage(conn, dosProto.MessageType_PLAYERS, &msg)
-		if err != nil {
-			// Socket is closed/something bad happened
-			game.PlayerJoined.RemoveListener(joined)
-			close(joined)
-			conn.Close()
-		}
-	}
+func SendPlayerJoins(conn *LockedSocket, game *dos.Game) {
+	WriteMessageOn(conn, &game.PlayerJoined,
+		func(conn *LockedSocket, newPlayerName interface{}) (proto.Message, error) {
+			msg := dosProto.PlayersMessage{}
+			msg.Addition = newPlayerName.(string)
+			return ZipMessage(dosProto.MessageType_PLAYERS, &msg)
+		})
 }
 
-func SendPlayerLeaves(conn *websocket.Conn, game *dos.Game) {
-	left := make(chan interface{})
-	game.PlayerLeft.AddListener(left)
-	go game.PlayerLeft.StartBroadcasting()
-
-	for leavingPlayer := range left {
-		msg := dosProto.PlayersMessage{}
-		msg.Deletion = leavingPlayer.(string)
-
-		err := WriteMessage(conn, dosProto.MessageType_PLAYERS, &msg)
-		if err != nil {
-			// Socket is closed/something bad happened
-			game.PlayerLeft.RemoveListener(left)
-			close(left)
-			conn.Close()
-		}
-	}
+func SendPlayerLeaves(conn *LockedSocket, game *dos.Game) {
+	WriteMessageOn(conn, &game.PlayerLeft,
+		func(conn *LockedSocket, leavingPlayer interface{}) (proto.Message, error) {
+			msg := dosProto.PlayersMessage{}
+			msg.Deletion = leavingPlayer.(string)
+			return ZipMessage(dosProto.MessageType_PLAYERS, &msg)
+		})
 }
 
-func SendCardAdditions(conn *websocket.Conn, cards *dos.Cards) {
-	additions := make(chan interface{})
-	cards.Additions.AddListener(additions)
-	go cards.Additions.StartBroadcasting()
-
-	for addition := range additions {
-		card := addition.(dosProto.Card)
-		msg := dosProto.CardsChangedMessage{}
-		msg.Additions = []*dosProto.Card{&card}
-		WriteMessage(conn, dosProto.MessageType_CARDS, &msg)
-	}
+func SendCardAdditions(conn *LockedSocket, cards *dos.Cards) {
+	WriteMessageOn(conn, &cards.Additions,
+		func(conn *LockedSocket, addition interface{}) (proto.Message, error) {
+			card := addition.(dosProto.Card)
+			msg := dosProto.CardsChangedMessage{}
+			msg.Additions = []*dosProto.Card{&card}
+			return ZipMessage(dosProto.MessageType_CARDS, &msg)
+		})
 }
 
-func SendCardDeletions(conn *websocket.Conn, cards *dos.Cards) {
-	deletions := make(chan interface{})
-	cards.Deletions.AddListener(deletions)
-	go cards.Deletions.StartBroadcasting()
-
-	for deletion := range deletions {
-		msg := dosProto.CardsChangedMessage{}
-		msg.Deletions = []int32{deletion.(int32)}
-		WriteMessage(conn, dosProto.MessageType_CARDS, &msg)
-	}
+func SendCardDeletions(conn *LockedSocket, cards *dos.Cards) {
+	WriteMessageOn(conn, &cards.Deletions,
+		func(conn *LockedSocket, deletion interface{}) (proto.Message, error) {
+			msg := dosProto.CardsChangedMessage{}
+			msg.Deletions = []int32{deletion.(int32)}
+			return ZipMessage(dosProto.MessageType_CARDS, &msg)
+		})
 }
 
-func SendTurnChanged(conn *websocket.Conn, game *dos.Game) {
-	nextTurn := make(chan interface{})
-	game.Turn.AddListener(nextTurn)
-	go game.Turn.StartBroadcasting()
-
-	for turn := range nextTurn {
-		lastCard := game.Discard.List[len(game.Discard.List)-1]
-		msg := dosProto.TurnMessage{}
-		msg.LastPlayed = &lastCard
-		msg.Player = turn.(string)
-		WriteMessage(conn, dosProto.MessageType_TURN, &msg)
-	}
+func SendTurnChanged(conn *LockedSocket, game *dos.Game) {
+	WriteMessageOn(conn, &game.Turn,
+		func(conn *LockedSocket, turn interface{}) (proto.Message, error) {
+			lastCard := game.Discard.List[len(game.Discard.List)-1]
+			msg := dosProto.TurnMessage{}
+			msg.LastPlayed = &lastCard
+			msg.Player = turn.(string)
+			return ZipMessage(dosProto.MessageType_TURN, &msg)
+		})
 }
 
-func HandleTurn(conn *websocket.Conn, player *dos.Player, game *dos.Game) {
+func HandleTurn(conn *LockedSocket, player *dos.Player, game *dos.Game) {
 	nextTurn := make(chan interface{})
 	game.Turn.AddListener(nextTurn)
 	go game.Turn.StartBroadcasting()
@@ -308,8 +291,34 @@ func HandleTurn(conn *websocket.Conn, player *dos.Player, game *dos.Game) {
 	}
 }
 
-func Read(conn *websocket.Conn, message proto.Message) error {
+func WriteMessageOn(conn *LockedSocket, broadcaster *utils.Broadcaster,
+	composer func(conn *LockedSocket, thing interface{}) (proto.Message, error)) {
+
+	channel := make(chan interface{})
+	broadcaster.AddListener(channel)
+	go broadcaster.StartBroadcasting()
+
+	for thing := range channel {
+		message, err := composer(conn, thing)
+		if err != nil {
+			fmt.Println("[composer] error while composing message:", err)
+			continue
+		}
+
+		err = Write(conn, message)
+		if err != nil {
+			// Socket is closed/something bad happened
+			broadcaster.RemoveListener(channel)
+			close(channel)
+			conn.Close()
+		}
+	}
+}
+
+func Read(conn *LockedSocket, message proto.Message) error {
+	conn.ReadLock.Lock()
 	format, buf, err := conn.ReadMessage()
+	conn.ReadLock.Unlock()
 	if format != websocket.BinaryMessage {
 		fmt.Println("[websocket] warning! reading non binary message")
 	}
@@ -328,7 +337,7 @@ func Read(conn *websocket.Conn, message proto.Message) error {
 	return nil
 }
 
-func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.Message) error {
+func ReadMessage(conn *LockedSocket, typ dosProto.MessageType, message proto.Message) error {
 	envelope := dosProto.Envelope{}
 	err := Read(conn, &envelope)
 	if err != nil {
@@ -347,14 +356,16 @@ func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.M
 	return nil
 }
 
-func Write(conn *websocket.Conn, message proto.Message) error {
+func Write(conn *LockedSocket, message proto.Message) error {
 	buf, err := proto.Marshal(message)
 	if err != nil {
 		fmt.Println("[websocket] failed to encode message:", err)
 		return err
 	}
 
+	conn.WriteLock.Lock()
 	err = conn.WriteMessage(websocket.BinaryMessage, buf)
+	conn.WriteLock.Unlock()
 	if err != nil {
 		fmt.Println("[websocket] failed to write message:", err)
 		return err
@@ -363,16 +374,31 @@ func Write(conn *websocket.Conn, message proto.Message) error {
 	return nil
 }
 
-func WriteMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.Message) error {
+func WriteMessage(conn *LockedSocket, typ dosProto.MessageType, message proto.Message) error {
+	envelope, err := ZipMessage(typ, message)
+	if err != nil {
+		fmt.Println("[composing] failed to compose message:", err)
+		return err
+	}
+
+	return Write(conn, envelope)
+}
+
+func ZipMessage(typ dosProto.MessageType, message proto.Message) (proto.Message, error) {
 	buf, err := proto.Marshal(message)
 	if err != nil {
-		fmt.Println("[websocket] failed to encode message", err)
-		return err
+		return nil, err
 	}
 
 	envelope := dosProto.Envelope{}
 	envelope.Type = typ
 	envelope.Contents = buf
 
-	return Write(conn, &envelope)
+	return &envelope, nil
+}
+
+type LockedSocket struct {
+	ReadLock  sync.Mutex
+	WriteLock sync.Mutex
+	*websocket.Conn
 }

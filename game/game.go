@@ -17,16 +17,16 @@ type Player struct {
 }
 
 type Game struct {
-	players []*Player
+	// TODO: Thread safe reading
+	playerMutex sync.Mutex
+	players     []*Player
+
 	Discard Cards
 	Deck    Cards
 
 	PlayerJoined utils.Broadcaster
 	PlayerLeft   utils.Broadcaster
 	Turn         utils.Broadcaster
-
-	// TODO: Thread safe reading
-	playerMutex sync.Mutex
 
 	currentPlayerIndex int
 	isReversed         bool

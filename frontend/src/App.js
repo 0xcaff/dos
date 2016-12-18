@@ -6,7 +6,12 @@ import Players from './Players';
 import SocketStatus from './SocketStatus';
 import { dos } from './proto';
 
-// TODO: Connection state indicator
+// TODO: Report played cards right away
+// TODO: SVGify Cards
+// TODO: Handle black card color selection.
+// TODO: Implement score board
+// TODO: Change Done/Draw button size.
+// TODO: Horizontal Card Layout like an acutal hand
 class App extends Component {
   state = {
     view: (window.location.pathname.slice(1) || 'join'),
@@ -61,8 +66,6 @@ class App extends Component {
       dos.MessageType.PLAY,
       dos.PlayMessage.encode({id: card.id}),
     );
-
-    // TODO: Handle black card
   }
 
   // TODO: Handle one event per turn
