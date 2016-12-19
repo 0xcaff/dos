@@ -69,7 +69,7 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 	conn := &LockedSocket{Conn: rawConn}
 
 	handshake := dosProto.HandshakeMessage{}
-	err := Read(conn, &handshake)
+	err = Read(conn, &handshake)
 	if err != nil {
 		conn.Close()
 		return
