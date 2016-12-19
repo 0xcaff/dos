@@ -69,7 +69,11 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 	conn := &LockedSocket{Conn: rawConn}
 
 	handshake := dosProto.HandshakeMessage{}
-	Read(conn, &handshake)
+	err := Read(conn, &handshake)
+	if err != nil {
+		conn.Close()
+		return
+	}
 
 	switch handshake.Type {
 	case dosProto.ClientType_PLAYER:
@@ -153,7 +157,11 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		go SendPlayerLeaves(conn, game)
 
 		envelope := dosProto.Envelope{}
-		Read(conn, &envelope)
+		err := Read(conn, &envelope)
+		if err != nil {
+			conn.Close()
+			return
+		}
 
 		if envelope.Type != dosProto.MessageType_START {
 			// Start is the only message spectators can send.
@@ -248,7 +256,11 @@ func HandleTurn(conn *LockedSocket, player *dos.Player, game *dos.Game) {
 
 			for !done {
 				envelope := dosProto.Envelope{}
-				Read(conn, &envelope)
+				err := Read(conn, &envelope)
+				if err != nil {
+					conn.Close()
+					return
+				}
 
 				switch envelope.Type {
 				case dosProto.MessageType_DRAW:

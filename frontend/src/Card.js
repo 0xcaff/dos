@@ -14,8 +14,24 @@ const NumbersToColors = ((object) => {
     }
   }
   return newObject;
-
 })(dos.CardColor);
+
+const ReverseImage =
+(<svg
+  className='reverse'
+  height='3'
+  width='5'
+  viewBox='-2 0 6 6'
+  xmlns='http://www.w3.org/2000/svg'>
+
+  <path
+    d='M0 3 h4 v1 l2 -2 l-2 -2 v1 h-2 q-2,0 -2,2' />
+
+  <path
+    d='M0 3 h4 v1 l2 -2 l-2 -2 v1 h-2 q-2,0 -2,2'
+    transform='rotate(180, 3, 2) translate(4, -2)' />
+</svg>);
+
 
 class Card extends Component {
   constructor(props) {
@@ -52,7 +68,9 @@ class Card extends Component {
     }
 
     let heroSymbol = null;
+    let corners = null;
     if (this.props.card.type === dos.CardType.DOUBLEDRAW) {
+      corners = '+2';
       heroSymbol = (
         <div className='inner-cards'>
           <div className='inner-card' />
@@ -60,32 +78,38 @@ class Card extends Component {
         </div>
       );
     } else if (this.props.card.type === dos.CardType.QUADDRAW) {
+      corners = '+4';
       // TODO: Handle
     } else if (this.props.card.type === dos.CardType.SKIP) {
-      // TODO: Handle
-      // TODO: Handle corners
+      // TODO: Impl
+      // let skip = (
+      // <div className='ban outer'>
+      //   <div className='ban inner'></div>
+      //   <div className='bar inner'></div>
+      // </div>);
+
+      // corners = skip;
+      // heroSymbol = skip;
     } else if (this.props.card.type === dos.CardType.REVERSE) {
-      // TODO: Handle
-      // TODO: Handle Corners
+      let reverse = ReverseImage;
+
+      corners = reverse;
+      heroSymbol = <div className='hero-reverse'>{ReverseImage}</div>
+
+    } else if (this.props.card.type === dos.CardType.NORMAL) {
+      let number = this.props.card.number;
+      corners = number;
+      heroSymbol = <div className='number big'>{ number }</div>
     }
 
-    let bigNumber = null;
-    let smallLNum = null;
-    let smallRNum = null;
-
-    if (this.props.card.type === dos.CardType.QUADDRAW) {
-      let number = '+4';
-      smallLNum = <div className='number small left'>{ number }</div>
-      smallRNum = <div className='number small right'>{ number }</div>
-    } else if (this.props.card.type === dos.CardType.DOUBLEDRAW) {
-      let number = '+2';
-      smallLNum = <div className='number small left'>{ number }</div>
-      smallRNum = <div className='number small right'>{ number }</div>
-    } else if (this.props.card.number !== -1) {
-      let number = this.props.card.number;
-      bigNumber = <div className='number big'>{ number }</div>
-      smallLNum = <div className='number small left'>{ number }</div>
-      smallRNum = <div className='number small right'>{ number }</div>
+    let leftCorner = null;
+    let rightCorner = null;
+    if (this.props.card.type === dos.CardType.NORMAL) {
+      leftCorner = <div className='corner number small left'>{ corners }</div>
+      rightCorner = <div className='corner number small right'>{ corners }</div>
+    } else {
+      leftCorner = <div className='corner small left'>{ corners }</div>
+      rightCorner = <div className='corner small right'>{ corners }</div>
     }
 
     return (
@@ -94,10 +118,8 @@ class Card extends Component {
         <div className='background'>
           { oval }
           { heroSymbol }
-
-          { bigNumber }
-          { smallLNum }
-          { smallRNum }
+          { leftCorner }
+          { rightCorner }
         </div>
       </div>
     );

@@ -4,6 +4,7 @@ import PlayView from './PlayView';
 import SpectatorView from './SpectatorView';
 import Players from './Players';
 import SocketStatus from './SocketStatus';
+import Card from './Card';
 import { dos } from './proto';
 
 // TODO: Report played cards right away
@@ -18,6 +19,9 @@ class App extends Component {
     players: [], // {name: string, active: boolean}
     cards: [],
     discard: null,
+    name: '',
+    hasDrawn: false,
+    hasPlayed: false,
   }
 
   constructor(props) {
@@ -53,7 +57,10 @@ class App extends Component {
       dos.ReadyMessage.encode({name: name}),
     );
 
-    this.navigateTo('lobby');
+    this.setState({
+      name: name,
+      view: 'lobby',
+    });
   }
 
   startGame() {
@@ -66,11 +73,15 @@ class App extends Component {
       dos.MessageType.PLAY,
       dos.PlayMessage.encode({id: card.id}),
     );
+
+    // TODO: errors from playing
+    this.setState({hasPlayed: true});
   }
 
   // TODO: Handle one event per turn
   drawCard() {
     encodeAndSend(this.socket, dos.MessageType.DRAW);
+    this.setState({hasDrawn: true});
   }
 
   turnDone() {
@@ -129,6 +140,9 @@ class App extends Component {
         players: this.state.players.map(player => {
           if (player.name === turnMessage.player) {
             player.active = true;
+            if (player.name === this.state.name) {
+              this.setState({isActive: true});
+            }
           } else {
             player.active = false;
           }
@@ -136,6 +150,8 @@ class App extends Component {
           return player;
         }),
         discard: turnMessage.lastPlayed,
+        hasDrawn: false,
+        hasPlayed: false,
       });
     }
   }
@@ -156,7 +172,10 @@ class App extends Component {
       view = <PlayView
                cards={this.state.cards}
                players={this.state.players}
+               name={this.state.name}
                discard={this.state.discard}
+               hasDrawn={this.state.hasDrawn}
+               hasPlayed={this.state.hasPlayed}
                playCard={this.playCard} 
                drawCard={this.drawCard}
                turnDone={this.turnDone} />
@@ -170,6 +189,9 @@ class App extends Component {
 
     } else if (this.state.view === 'scores') {
       // TODO: Implement
+    } else {
+      view = <Card
+               card={this.state.discard} />
     }
 
     return (
