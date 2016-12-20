@@ -14,6 +14,9 @@ class Cards extends Component {
 
   componentDidMount() {
     this.slip = new Slip(this.element);
+    this.element.addEventListener('slip:beforereorder', (event) => {
+      event.preventDefault();
+    });
   }
 
   componentWillUnmount() {

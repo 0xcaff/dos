@@ -65,11 +65,19 @@ class Card extends Component {
     if (props.onSwipe) {
       this.onSwipe = props.onSwipe.bind(this);
     }
+
+    if (props.onBeforeSwipe) {
+      this.onBeforeSwipe = props.onBeforeSwipe.bind(this);
+    }
   }
 
   componentDidMount() {
     if (this.props.onSwipe) {
       this.element.addEventListener('slip:swipe', this.onSwipe);
+    }
+
+    if (this.props.onBeforeSwipe) {
+      this.element.addEventListener('slip:beforeswipe', this.onBeforeSwipe);
     }
   }
 
@@ -81,7 +89,7 @@ class Card extends Component {
     let oval = null;
     if (this.props.card.type === dos.CardType.WILD) {
       oval = (
-        <div className='oval'>
+        <div className='wild oval'>
           <div className='yellow top left' />
           <div className='green top right' />
           <div className='blue bottom left' />
@@ -94,6 +102,7 @@ class Card extends Component {
 
     let heroSymbol = null;
     let corners = null;
+    let cornerClasses = ['corner'];
     if (this.props.card.type === dos.CardType.DOUBLEDRAW) {
       corners = '+2';
       heroSymbol = (
@@ -104,7 +113,14 @@ class Card extends Component {
       );
     } else if (this.props.card.type === dos.CardType.QUADDRAW) {
       corners = '+4';
-      // TODO: Handle
+      heroSymbol = (
+        <div className='strech quad-cards'>
+          <div className='left red' />
+          <div className='top blue' />
+          <div className='right green' />
+          <div className='bottom yellow' />
+        </div>
+      );
     } else if (this.props.card.type === dos.CardType.SKIP) {
       let skip = SkipImage;
       corners = skip;
@@ -118,6 +134,9 @@ class Card extends Component {
       let number = this.props.card.number;
       corners = number;
       heroSymbol = <div className='number big'>{ number }</div>
+    } else if (this.props.card.type === dos.CardType.WILD) {
+      corners = oval;
+      cornerClasses.push('wild');
     }
 
     return (
@@ -126,8 +145,8 @@ class Card extends Component {
         <div className='strech background'>
           { oval }
           { heroSymbol }
-          <div className='corner left'>{ corners }</div>
-          <div className='corner right'>{ corners }</div>
+          <div className={['left'].concat(cornerClasses).join(' ')}>{ corners }</div>
+          <div className={['right'].concat(cornerClasses).join(' ')}>{ corners }</div>
         </div>
       </div>
     );

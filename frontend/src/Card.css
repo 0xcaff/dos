@@ -55,11 +55,13 @@
 
   box-shadow: 0 0 0.2em 0 #ccc;
   overflow: hidden;
-  user-select: none;
   background: white;
   font-family: 'Nunito', sans-serif;
   font-weight: bold;
   text-shadow: rgba(0, 0, 0, 0.75) 0.05em 0.05em;
+
+  user-select: none;
+  cursor: default;
 }
 
 .card:before {
@@ -135,6 +137,10 @@
   left: 50%;
   transform: translateX(-50%) translateY(-50%);
   font-size: 50pt;
+  text-shadow: rgba(0, 0, 0, 0.75) 0.05em 0.05em;
+
+  user-select: none;
+  cursor: default;
 }
 
 .corner {
@@ -142,6 +148,9 @@
   line-height: 25pt;
   color: #eee;
   margin: 5%;
+
+  user-select: none;
+  cursor: default;
 }
 
 .inner-cards {
@@ -204,4 +213,58 @@
   margin: auto;
   transform: translateY(50%);
   stroke: white;
+}
+
+.quad-cards {
+  transform: skewX(-20deg);
+  margin: 20%;
+}
+
+.quad-cards div {
+  position: absolute;
+  background: var(--bg-color);
+  border-radius: 5% 3%;
+  margin: 0.3em;
+  border: 0.3em solid white;
+}
+
+.quad-cards .left {
+  top: 25%;
+  bottom: 25%;
+  left: 0;
+  right: 50%;
+}
+
+.quad-cards .top {
+  top: 0;
+  left: 25%;
+  right: 25%;
+  bottom: 50%;
+}
+
+.quad-cards .right {
+  right: 0;
+  left: 50%;
+  bottom: 30%;
+  top: 20%;
+}
+
+.quad-cards .bottom {
+  bottom: 0;
+  top: 50%;
+  left: 20%;
+  right: 30%;
+}
+
+.wild.oval {
+  border: 0.5em solid white;
+}
+
+.corner.wild {
+  width: 10%;
+  height: 10%;
+}
+
+.corner.wild .wild.oval {
+  border-width: 0.075em;
 }
