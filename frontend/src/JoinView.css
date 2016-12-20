@@ -22,3 +22,10 @@
   height: 2em;
 }
 
+.error {
+  margin: 1em 0;
+  padding: 1em;
+  background: #d9534f;
+  color: white;
+}
+

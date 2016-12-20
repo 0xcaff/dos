@@ -46,14 +46,8 @@ func main() {
 
 	go started.StartBroadcasting()
 
-	errChan := make(chan error)
-	go func() {
-		fmt.Printf("[server] initializing on %s\n", *listen)
-		err := s.ListenAndServe()
-		errChan <- err
-	}()
-
-	err := <-errChan
+	fmt.Printf("[server] initializing on %s\n", *listen)
+	err := s.ListenAndServe()
 	log.Fatal(err)
 }
 
@@ -86,16 +80,29 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			ready := dosProto.ReadyMessage{}
 			err := ReadMessage(conn, dosProto.MessageType_READY, &ready)
 			if err != nil {
-				fmt.Println("[websocket] failed to parse message", err)
+				conn.Close()
 				return
 			}
 
 			player, err = game.NewPlayer(ready.Name)
 			if err != nil {
 				fmt.Printf("[game] %s failed to join: %v\n", ready.Name, err)
-				// TODO: Send error downstream
+				errorMessage := dosProto.ErrorMessage{
+					Reason: err.Error(),
+				}
+
+				err := WriteMessage(conn, dosProto.MessageType_ERROR, &errorMessage)
+				if err != nil {
+					conn.Close()
+					return
+				}
 			} else {
 				fmt.Printf("[game] %s joined\n", ready.Name)
+				err := WriteMessage(conn, dosProto.MessageType_SUCCESS, nil)
+				if err != nil {
+					conn.Close()
+					return
+				}
 				break
 			}
 		}
@@ -115,9 +122,14 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		})
 
 		// Send player list
-		playersMessage := dosProto.PlayersMessage{}
-		playersMessage.Initial = game.GetPlayerList()
-		WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
+		playersMessage := dosProto.PlayersMessage{
+			Additions: game.GetPlayerList(),
+		}
+		err = WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
+		if err != nil {
+			conn.Close()
+			return
+		}
 
 		// Maintain player list
 		go SendPlayerJoins(conn, game)
@@ -139,7 +151,11 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			additions[index] = &player.Cards.List[index]
 		}
 		changed.Additions = additions
-		WriteMessage(conn, dosProto.MessageType_CARDS, &changed)
+		err = WriteMessage(conn, dosProto.MessageType_CARDS, &changed)
+		if err != nil {
+			conn.Close()
+			return
+		}
 
 		go SendCardAdditions(conn, &player.Cards)
 		go SendCardDeletions(conn, &player.Cards)
@@ -148,9 +164,14 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		fmt.Println("[game] spectator joined")
 
 		// Send player list
-		playersMessage := dosProto.PlayersMessage{}
-		playersMessage.Initial = game.GetPlayerList()
-		WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
+		playersMessage := dosProto.PlayersMessage{
+			Additions: game.GetPlayerList(),
+		}
+		err = WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
+		if err != nil {
+			conn.Close()
+			return
+		}
 
 		// Maintain player list
 		go SendPlayerJoins(conn, game)
@@ -192,8 +213,9 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 func SendPlayerJoins(conn *LockedSocket, game *dos.Game) {
 	WriteMessageOn(conn, &game.PlayerJoined,
 		func(conn *LockedSocket, newPlayerName interface{}) (proto.Message, error) {
-			msg := dosProto.PlayersMessage{}
-			msg.Addition = newPlayerName.(string)
+			msg := dosProto.PlayersMessage{
+				Additions: []string{newPlayerName.(string)},
+			}
 			return ZipMessage(dosProto.MessageType_PLAYERS, &msg)
 		})
 }
@@ -201,8 +223,9 @@ func SendPlayerJoins(conn *LockedSocket, game *dos.Game) {
 func SendPlayerLeaves(conn *LockedSocket, game *dos.Game) {
 	WriteMessageOn(conn, &game.PlayerLeft,
 		func(conn *LockedSocket, leavingPlayer interface{}) (proto.Message, error) {
-			msg := dosProto.PlayersMessage{}
-			msg.Deletion = leavingPlayer.(string)
+			msg := dosProto.PlayersMessage{
+				Deletions: []string{leavingPlayer.(string)},
+			}
 			return ZipMessage(dosProto.MessageType_PLAYERS, &msg)
 		})
 }
@@ -211,8 +234,9 @@ func SendCardAdditions(conn *LockedSocket, cards *dos.Cards) {
 	WriteMessageOn(conn, &cards.Additions,
 		func(conn *LockedSocket, addition interface{}) (proto.Message, error) {
 			card := addition.(dosProto.Card)
-			msg := dosProto.CardsChangedMessage{}
-			msg.Additions = []*dosProto.Card{&card}
+			msg := dosProto.CardsChangedMessage{
+				Additions: []*dosProto.Card{&card},
+			}
 			return ZipMessage(dosProto.MessageType_CARDS, &msg)
 		})
 }
@@ -220,8 +244,9 @@ func SendCardAdditions(conn *LockedSocket, cards *dos.Cards) {
 func SendCardDeletions(conn *LockedSocket, cards *dos.Cards) {
 	WriteMessageOn(conn, &cards.Deletions,
 		func(conn *LockedSocket, deletion interface{}) (proto.Message, error) {
-			msg := dosProto.CardsChangedMessage{}
-			msg.Deletions = []int32{deletion.(int32)}
+			msg := dosProto.CardsChangedMessage{
+				Deletions: []int32{deletion.(int32)},
+			}
 			return ZipMessage(dosProto.MessageType_CARDS, &msg)
 		})
 }
@@ -230,9 +255,10 @@ func SendTurnChanged(conn *LockedSocket, game *dos.Game) {
 	WriteMessageOn(conn, &game.Turn,
 		func(conn *LockedSocket, turn interface{}) (proto.Message, error) {
 			lastCard := game.Discard.List[len(game.Discard.List)-1]
-			msg := dosProto.TurnMessage{}
-			msg.LastPlayed = &lastCard
-			msg.Player = turn.(string)
+			msg := dosProto.TurnMessage{
+				LastPlayed: &lastCard,
+				Player:     turn.(string),
+			}
 			return ZipMessage(dosProto.MessageType_TURN, &msg)
 		})
 }
@@ -284,7 +310,6 @@ func HandleTurn(conn *LockedSocket, player *dos.Player, game *dos.Game) {
 						err = game.PlayCard(player, playMessage.Id, playMessage.Color)
 						if err != nil {
 							fmt.Println("[game] play failed:", err, playMessage)
-							// TODO: Handle error
 						} else {
 							fmt.Println("[game] played card")
 							hasPlayed = true
@@ -397,9 +422,13 @@ func WriteMessage(conn *LockedSocket, typ dosProto.MessageType, message proto.Me
 }
 
 func ZipMessage(typ dosProto.MessageType, message proto.Message) (proto.Message, error) {
-	buf, err := proto.Marshal(message)
-	if err != nil {
-		return nil, err
+	var buf []byte
+	var err error
+	if message != nil {
+		buf, err = proto.Marshal(message)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	envelope := dosProto.Envelope{}

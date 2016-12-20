@@ -8,7 +8,7 @@ class Cards extends Component {
 
     this.onSwipe = function(event) {
       const card = this.props.card;
-      props.onSwipe(card);
+      props.onSwipe(card, event);
     }
   }
 
@@ -30,7 +30,8 @@ class Cards extends Component {
           <Card
             card={card}
             key={card.id}
-            onSwipe={this.onSwipe} />
+            onSwipe={this.onSwipe}
+            onBeforeSwipe={this.props.onBeforeSwipe} />
         )}
       </div>
     );

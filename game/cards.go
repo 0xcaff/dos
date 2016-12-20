@@ -267,7 +267,8 @@ func CanCoverCard(baseCard, otherCard *proto.Card) bool {
 		return true
 	}
 
-	if baseCard.Color == proto.CardColor_BLACK {
+	if otherCard.Color == proto.CardColor_BLACK ||
+		baseCard.Color == proto.CardColor_BLACK {
 		// If the game starts with a black card, anything can cover it.
 		return true
 	}

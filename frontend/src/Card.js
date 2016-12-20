@@ -155,3 +155,27 @@ class Card extends Component {
 
 export default Card;
 
+export function CanCover(baseCard, otherCard) {
+  const specialsMatch = baseCard.type === otherCard.type;
+  const bothAreNormal = specialsMatch && baseCard.type === dos.CardType.NORMAL;
+  const colorsMatch = baseCard.color === otherCard.color;
+  const numbersMatch = baseCard.number === otherCard.number;
+
+  if (colorsMatch || (numbersMatch && bothAreNormal)) {
+    return true;
+  }
+
+  const bothAreNotNormal = specialsMatch && baseCard.type !== dos.CardType.NORMAL;
+  if (specialsMatch && bothAreNotNormal) {
+    return true;
+  }
+
+  if (otherCard.color === dos.CardColor.BLACK ||
+    baseCard.color === dos.CardColor.BLACK) {
+    // If the game starts with a black card, anything can cover it.
+    return true;
+  }
+
+  return false;
+}
+

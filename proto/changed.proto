@@ -11,16 +11,5 @@ message CardsChangedMessage {
 
 	// Ids of cards to delete.
 	repeated int32 deletions = 2;
-
-	// Specifies which collection should be updated.
-	// Collection which = 3;
-
-	// If `which` is HAND, and the client is GOD, the player whose hand changed.
-	// string player = 4;
 }
-
-// enum Collection {
-// 	HAND = 0;
-// 	DECK = 1;
-// }
 

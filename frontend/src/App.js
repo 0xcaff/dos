@@ -4,21 +4,17 @@ import PlayView from './PlayView';
 import SpectatorView from './SpectatorView';
 import Players from './Players';
 import SocketStatus from './SocketStatus';
-import Card from './Card';
 import { dos } from './proto';
 
-// TODO: Report played cards right away
-// TODO: SVGify Cards
 // TODO: Handle black card color selection.
 // TODO: Implement score board
-// TODO: Change Done/Draw button size.
-// TODO: Horizontal Card Layout like an acutal hand
 class App extends Component {
   state = {
     view: (window.location.pathname.slice(1) || 'join'),
     players: [], // {name: string, active: boolean}
     cards: [],
     discard: null,
+    error: '',
     name: '',
     hasDrawn: false,
     hasPlayed: false,
@@ -33,6 +29,7 @@ class App extends Component {
     this.playCard = this.playCard.bind(this);
     this.drawCard = this.drawCard.bind(this);
     this.turnDone = this.turnDone.bind(this);
+    this.handleSocketChange = this.handleSocketChange.bind(this);
 
     // Open Connection
     this.socket = new WebSocket(`ws://drone.lan:8080/socket`);
@@ -40,27 +37,46 @@ class App extends Component {
     window.onunload = () => this.socket.close();
 
     this.socket.addEventListener('message', this.handleMessage);
+    this.socket.addEventListener('close', this.handleSocketChange);
+    this.socket.addEventListener('open', this.handleSocketChange);
+
+    // eslint-disable-next-line react/no-direct-mutation-state
+    this.state.connectionStatus = this.socket.readyState;
+  }
+
+  handleSocketChange() {
+    this.setState({
+      connectionStatus: this.socket.readyState,
+    });
   }
 
   setName(name) {
-    if (!name) {
-      throw new Error("Invalid Name");
-    }
-
-    // Send handshake player handshake message
-    // TODO: Bug in protobufjs causes empty messages to crash.
-    this.socket.send(new Uint8Array([]));
-
     encodeAndSend(
       this.socket,
       dos.MessageType.READY,
       dos.ReadyMessage.encode({name: name}),
     );
 
-    this.setState({
-      name: name,
-      view: 'lobby',
-    });
+    const messageHandler = (event) => {
+      const data = new Uint8Array(event.data);
+      const envelope = dos.Envelope.decode(data);
+      this.socket.removeEventListener('message', messageHandler);
+
+      if (envelope.type === dos.MessageType.SUCCESS) {
+        this.setState({
+          name: name,
+          view: 'lobby',
+        });
+      } else if (envelope.type === dos.MessageType.ERROR) {
+        const errorMessage = dos.ErrorMessage.decode(envelope.contents);
+
+        this.setState({
+          error: errorMessage.reason,
+        });
+      }
+    }
+
+    this.socket.addEventListener('message', messageHandler);
   }
 
   startGame() {
@@ -73,12 +89,9 @@ class App extends Component {
       dos.MessageType.PLAY,
       dos.PlayMessage.encode({id: card.id}),
     );
-
-    // TODO: errors from playing
     this.setState({hasPlayed: true});
   }
 
-  // TODO: Handle one event per turn
   drawCard() {
     encodeAndSend(this.socket, dos.MessageType.DRAW);
     this.setState({hasDrawn: true});
@@ -96,25 +109,25 @@ class App extends Component {
       const playersMessage = dos.PlayersMessage.decode(envelope.contents);
       console.log(playersMessage);
 
-      if (playersMessage.initial.length > 0) {
+      if (playersMessage.additions.length > 0) {
         this.setState({
-          players: playersMessage.initial.map(
-            name => ({name: name, active: false})
+          players: this.state.players.concat(
+            playersMessage.additions.map(name => ({
+              name: name,
+              active: false,
+            }))
           ),
         });
-      } else if (playersMessage.addition) {
-        this.setState({
-          players: this.state.players.concat([{
-            name: playersMessage.addition,
-            active: false
-          }]),
-        });
-      } else if (playersMessage.deletion) {
+      }
+
+      if (playersMessage.deletions.length > 0) {
+        const deletions = new Set(playersMessage.deletions);
         this.setState({
           players: this.state.players
-            .filter(player => player.name !== playersMessage.deletion),
+            .filter(player => !deletions.has(player.name)),
         });
       }
+
     } else if (envelope.type === dos.MessageType.CARDS) {
       const cardsMessage = dos.CardsChangedMessage.decode(envelope.contents);
       console.log(cardsMessage);
@@ -160,7 +173,10 @@ class App extends Component {
     let view;
     if (this.state.view === 'join') {
       view = <JoinView
-               setName={this.setName} />
+               socket={this.socket}
+               connectionStatus={this.state.connectionStatus}
+               setName={this.setName}
+               error={this.state.error} />
 
     } else if (this.state.view === 'lobby') {
       view = (<div className='flex-center'>
@@ -174,29 +190,27 @@ class App extends Component {
                players={this.state.players}
                name={this.state.name}
                discard={this.state.discard}
-               hasDrawn={this.state.hasDrawn}
-               hasPlayed={this.state.hasPlayed}
                playCard={this.playCard} 
                drawCard={this.drawCard}
-               turnDone={this.turnDone} />
+               turnDone={this.turnDone}
+               hasDrawn={this.state.hasDrawn}
+               hasPlayed={this.state.hasPlayed} />
 
     } else if (this.state.view === 'spectate') {
       view = <SpectatorView
                socket={this.socket}
                discard={this.state.discard}
                players={this.state.players}
-               startGame={this.startGame} />
+               startGame={this.startGame}
+               connectionStatus={this.state.connectionStatus} />
 
     } else if (this.state.view === 'scores') {
       // TODO: Implement
-    } else {
-      view = <Card
-               card={this.state.discard} />
     }
 
     return (
       <div>
-        <SocketStatus socket={this.socket} />
+        <SocketStatus readyState={this.state.connectionStatus} />
         { view }
       </div>
     );

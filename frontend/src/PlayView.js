@@ -1,12 +1,37 @@
 import React, { Component } from 'react';
 import Cards from './Cards';
-import Card from './Card';
+import Card, { CanCover } from './Card';
 import Players from './Players';
 import './PlayView.css';
 
 class PlayView extends Component {
+  constructor(props) {
+    super(props);
+
+    this.playCard = this.playCard.bind(this);
+    this.beforePlayCard = this.beforePlayCard.bind(this);
+  }
+
+  playCard(card, event) {
+    if (CanCover(this.props.discard, card)) {
+      this.props.playCard(card);
+      this.props.turnDone();
+    } else {
+      event.preventDefault();
+    }
+  }
+
+  beforePlayCard(event) {
+    const active = this.props.players.find(player => player.active);
+    let isActive = active && active.name === this.props.name;
+
+    if (!isActive) {
+      event.preventDefault();
+    }
+  }
+
   render() {
-    let active = this.props.players.find(player => player.active);
+    const active = this.props.players.find(player => player.active);
     let isActive = active && active.name === this.props.name;
 
     let button = null;
@@ -25,7 +50,8 @@ class PlayView extends Component {
         { button }
         <Cards
           cards={this.props.cards}
-          onSwipe={this.props.playCard} />
+          onSwipe={this.playCard}
+          onBeforeSwipe={this.beforePlayCard} />
 
         <Players
           players={this.props.players} />

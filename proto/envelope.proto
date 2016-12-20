@@ -18,5 +18,12 @@ enum MessageType {
 
 	READY = 6;
 	START = 7;
+
+	ERROR = 8;
+	SUCCESS = 9;
+}
+
+message ErrorMessage {
+	string reason = 1;
 }
 

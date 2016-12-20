@@ -15,11 +15,10 @@ class SpectatorView extends Component {
     this.props.socket.onopen = () => this.props.socket.send(handshake);
   }
 
+  // TODO: Make this look nice.
   render() {
     return (
       <div>
-        <button onClick={this.props.startGame}>Start Game</button>
-
         <div
           style={{
             'display': 'flex',
@@ -31,12 +30,16 @@ class SpectatorView extends Component {
             }}>
             <Players
               players={this.props.players} />
+
+            <button
+              onClick={this.props.startGame}
+              disabled={this.props.connectionStatus !== 1}>Start Game</button>
           </div>
 
           <div
             style={{
               'alignSelf': 'center',
-              'width': '10em',
+              'width': '50vmin',
             }}>
             <Card
               card={this.props.discard} />
