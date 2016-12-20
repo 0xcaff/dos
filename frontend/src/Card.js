@@ -16,9 +16,9 @@ const NumbersToColors = ((object) => {
   return newObject;
 })(dos.CardColor);
 
-const ReverseImage =
-(<svg
-  className='reverse'
+const ReverseImage = (
+<svg
+  className='reverse strech'
   height='3'
   width='5'
   viewBox='-2 0 6 6'
@@ -32,6 +32,31 @@ const ReverseImage =
     transform='rotate(180, 3, 2) translate(4, -2)' />
 </svg>);
 
+const SkipImage = (
+<svg
+  width='10'
+  height='10'
+  viewBox='0 0 15 15'
+  className='skip strech'>
+
+  <circle
+    cx='50%'
+    cy='50%'
+    r='40%'
+    strokeWidth='2'
+    stroke='inherit'
+    fill='none' />
+ 
+  <line
+    x1='10%'
+    y1='50%'
+    x2='90%'
+    y2='50%'
+    strokeWidth='2'
+    stroke='inherit'
+    transform='rotate(-45 7.5 7.5)' />
+</svg>
+);
 
 class Card extends Component {
   constructor(props) {
@@ -57,10 +82,10 @@ class Card extends Component {
     if (this.props.card.type === dos.CardType.WILD) {
       oval = (
         <div className='oval'>
-          <div className='top left' />
-          <div className='top right' />
-          <div className='bottom left' />
-          <div className='bottom right' />
+          <div className='yellow top left' />
+          <div className='green top right' />
+          <div className='blue bottom left' />
+          <div className='red bottom right' />
         </div>
       );
     } else {
@@ -72,7 +97,7 @@ class Card extends Component {
     if (this.props.card.type === dos.CardType.DOUBLEDRAW) {
       corners = '+2';
       heroSymbol = (
-        <div className='inner-cards'>
+        <div className='strech inner-cards'>
           <div className='inner-card' />
           <div className='inner-card' />
         </div>
@@ -81,45 +106,28 @@ class Card extends Component {
       corners = '+4';
       // TODO: Handle
     } else if (this.props.card.type === dos.CardType.SKIP) {
-      // TODO: Impl
-      // let skip = (
-      // <div className='ban outer'>
-      //   <div className='ban inner'></div>
-      //   <div className='bar inner'></div>
-      // </div>);
-
-      // corners = skip;
-      // heroSymbol = skip;
+      let skip = SkipImage;
+      corners = skip;
+      heroSymbol = <div className='hero-skip strech'>{ skip }</div>
     } else if (this.props.card.type === dos.CardType.REVERSE) {
       let reverse = ReverseImage;
 
       corners = reverse;
-      heroSymbol = <div className='hero-reverse'>{ReverseImage}</div>
-
+      heroSymbol = <div className='hero-reverse strech'>{ ReverseImage }</div>
     } else if (this.props.card.type === dos.CardType.NORMAL) {
       let number = this.props.card.number;
       corners = number;
       heroSymbol = <div className='number big'>{ number }</div>
     }
 
-    let leftCorner = null;
-    let rightCorner = null;
-    if (this.props.card.type === dos.CardType.NORMAL) {
-      leftCorner = <div className='corner number small left'>{ corners }</div>
-      rightCorner = <div className='corner number small right'>{ corners }</div>
-    } else {
-      leftCorner = <div className='corner small left'>{ corners }</div>
-      rightCorner = <div className='corner small right'>{ corners }</div>
-    }
-
     return (
       <div ref={(element) => this.element = element}
            className={['card', NumbersToColors[this.props.card.color]].join(' ')} >
-        <div className='background'>
+        <div className='strech background'>
           { oval }
           { heroSymbol }
-          { leftCorner }
-          { rightCorner }
+          <div className='corner left'>{ corners }</div>
+          <div className='corner right'>{ corners }</div>
         </div>
       </div>
     );

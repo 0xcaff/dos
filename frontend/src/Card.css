@@ -1,6 +1,46 @@
 @import url('https://fonts.googleapis.com/css?family=Nunito');
 
-.center {
+.red {
+  --bg-color: #ea1823;
+  --text-color: red;
+}
+
+.yellow {
+  --bg-color: #fff000;
+  --text-color: yellow;
+}
+
+.green {
+  --bg-color: #56a90f;
+  --text-color: green;
+}
+
+.blue {
+  --bg-color: #2077d6;
+  --text-color: blue;
+}
+
+.black {
+  --bg-color: black;
+}
+
+.background, .inner-card, .oval * {
+  background: var(--bg-color);
+}
+
+.hero-reverse .reverse {
+  fill: var(--text-color);
+}
+
+.hero-skip .skip {
+  stroke: var(--text-color);
+}
+
+.corner, .number {
+  color: var(--text-color);
+}
+
+.strech {
   position: absolute;
   top: 0;
   left: 0;
@@ -17,6 +57,9 @@
   overflow: hidden;
   user-select: none;
   background: white;
+  font-family: 'Nunito', sans-serif;
+  font-weight: bold;
+  text-shadow: rgba(0, 0, 0, 0.75) 0.05em 0.05em;
 }
 
 .card:before {
@@ -27,21 +70,14 @@
   padding-top: 140%;
 }
 
-.card .background {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  left: 0;
-
+.background {
   /* 0.2 / 2.5 * 100% */
   margin: 8%;
   border-radius: 5% 3%;
-
   overflow: hidden;
 }
 
-.card .background .oval {
+.oval {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -54,7 +90,7 @@
   overflow: hidden;
 }
 
-.oval .top, .oval .bottom {
+.oval * {
   position: absolute;
 }
 
@@ -78,93 +114,8 @@
   left: 50%;
 }
 
-.number {
+.corner {
   position: absolute;
-  text-shadow: rgba(0, 0, 0, 0.75) 0.05em 0.05em;
-  font-family: 'Nunito', sans-serif;
-  font-weight: bold;
-}
-
-.number.big {
-  top: 50%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-50%);
-  font-size: 50pt;
-}
-
-.red .background, .oval .right.bottom {
-  background: #ea1823;
-}
-
-.red .hero-reverse .reverse {
-  fill: #ea1823;
-}
-
-.red .number {
-  color: red;
-}
-
-.red .inner-card {
-  background: red;
-}
-
-.yellow .background, .oval .left.top {
-  background: #fff000;
-}
-
-.yellow .hero-reverse .reverse {
-  fill: #fff000;
-}
-
-.yellow .number {
-  color: yellow;
-}
-
-.yellow .inner-card {
-  background: yellow;
-}
-
-.green .background, .oval .right.top {
-  background: #56a90f;
-}
-
-.green .hero-reverse .reverse {
-  fill: #56a90f;
-}
-
-.green .number {
-  color: green;
-}
-
-.green .inner-card {
-  background: green;
-}
-
-.blue .background, .oval .left.bottom {
-  background: #2077d6;
-}
-
-.blue .hero-reverse .reverse {
-  fill: #2077d6;
-}
-
-.blue .number {
-  color: blue;
-}
-
-.blue .inner-card {
-  background: blue;
-}
-
-.black .background {
-  background: black;
-}
-
-.corner.small {
-  font-size: 25pt;
-  line-height: 25pt;
-  color: #eee;
-  margin: 5%;
 }
 
 .corner.left {
@@ -178,13 +129,22 @@
   transform: rotateZ(180deg);
 }
 
-.inner-cards {
+.number.big {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  font-size: 50pt;
+}
 
+.corner {
+  font-size: 25pt;
+  line-height: 25pt;
+  color: #eee;
+  margin: 5%;
+}
+
+.inner-cards {
   width: 55%;
   height: 55%;
   margin: auto;
@@ -219,23 +179,12 @@
 }
 
 .hero-reverse {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-
   margin: auto;
 }
 
 .hero-reverse .reverse {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
   margin: auto;
-  width: 100%;
+  width: 80%;
   height: auto;
 }
 
@@ -243,38 +192,16 @@
   transform: rotate(-45deg);
 }
 
-.ban.outer {
-  position: relative;
-  background: black;
-  width: 10em;
-  height: 10em;
-}
-
-.ban {
-  border-radius: 100%;
-}
-
-.ban.inner, .bar.inner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.hero-skip .skip {
   margin: auto;
+  height: 50%;
+  width: auto;
 }
 
-.ban.inner {
-  width: 80%;
-  height: 80%; 
-  
-  background: white;
+.corner .skip {
+  width: 30px;
+  height: auto;
+  margin: auto;
+  transform: translateY(50%);
+  stroke: white;
 }
-
-.bar.inner {
-  width: 100%;
-  height: 1em;
-  background: black;
-  
-  transform: rotate(-45deg);
-}
-
