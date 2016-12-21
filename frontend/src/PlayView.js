@@ -47,10 +47,6 @@ class PlayView extends Component {
 
     return (
       <div className='play-view'>
-        <div className='actions'>
-          { button }
-        </div>
-
         <Cards
           cards={this.props.cards}
           onSwipe={this.playCard}
@@ -61,6 +57,23 @@ class PlayView extends Component {
 
         <Card
           card={this.props.discard} />
+
+        <div className='actions'>
+          <div className='container'>
+            { button }
+
+            <div className='status-dots'>
+              {this.props.players.map(player => (
+                <span
+                  key={player.name}
+                  title={player.name}
+                  className={[
+                    player.active ? 'active' : undefined,
+                 ].filter(className => !!className).join(' ')} />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
