@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import Players from './Players';
 import Card from './Card';
 import { dos } from './proto';
+import './SpectatorView.css'
 
 class SpectatorView extends Component {
   constructor(props) {
@@ -15,35 +16,21 @@ class SpectatorView extends Component {
     this.props.socket.onopen = () => this.props.socket.send(handshake);
   }
 
-  // TODO: Make this look nice.
   render() {
     return (
-      <div>
-        <div
-          style={{
-            'display': 'flex',
-            'justifyContent': 'space-around',
-          }}>
-          <div
-            style={{
-              'alignSelf': 'flex-start',
-            }}>
-            <Players
-              players={this.props.players} />
+      <div className='spectator-view'>
+        <div className='players'>
+          <Players
+            players={this.props.players} />
 
-            <button
-              onClick={this.props.startGame}
-              disabled={this.props.connectionStatus !== 1}>Start Game</button>
-          </div>
+          <button
+            onClick={this.props.startGame}
+            disabled={this.props.connectionStatus !== 1}>Start Game!</button>
+        </div>
 
-          <div
-            style={{
-              'alignSelf': 'center',
-              'width': '50vmin',
-            }}>
-            <Card
-              card={this.props.discard} />
-          </div>
+        <div className='discard'>
+          <Card
+            card={this.props.discard} />
         </div>
       </div>
     );

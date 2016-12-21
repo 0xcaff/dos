@@ -47,7 +47,10 @@ class PlayView extends Component {
 
     return (
       <div className='play-view'>
-        { button }
+        <div className='actions'>
+          { button }
+        </div>
+
         <Cards
           cards={this.props.cards}
           onSwipe={this.playCard}

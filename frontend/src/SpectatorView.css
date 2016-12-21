@@ -1,0 +1,31 @@
+.spectator-view {
+  min-height: 100%;
+  display: flex;
+  justify-content: space-around;
+  align-children: stretch;
+  flex-wrap: wrap;
+}
+
+.spectator-view .players {
+  display: flex;
+  flex-direction: column;
+}
+
+.spectator-view .players :nth-child(1) {
+  flex: 1;
+}
+
+.spectator-view .players button {
+  margin-bottom: 2em;
+  max-width: 10em;
+  align-self: center;
+  width: 100%;
+}
+
+.spectator-view .discard {
+  align-self: center;
+  min-width: 20em;
+  width: 30vmax;
+}
+
+
