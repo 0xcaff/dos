@@ -31,11 +31,11 @@
   display: block;
 }
 
-.play-view .status-dots {
+.status-dots {
   text-align: center;
 }
 
-.play-view .status-dots span {
+.status-dots span {
   display: inline-block;
   border-radius: 50%;
   background: white;
@@ -45,8 +45,35 @@
   border: 1px solid #eee;
 }
 
-.play-view .status-dots span.active {
+.status-dots span.active {
   background: #ccc;
   border-color: #ccc;
+}
+
+.color-picker {
+  position: fixed;
+}
+
+.color-picker .top, .color-picker .bottom {
+  position: absolute;
+  height: 50%;
+  width: 50%;
+  background: var(--bg-color);
+}
+
+.color-picker .top {
+  top: 0;
+}
+
+.color-picker .left {
+  left: 0;
+}
+
+.color-picker .right {
+  right: 0;
+}
+
+.color-picker .bottom {
+  bottom: 0;
 }
 

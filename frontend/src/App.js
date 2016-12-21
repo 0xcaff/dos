@@ -83,11 +83,11 @@ class App extends Component {
     encodeAndSend(this.socket, dos.MessageType.START);
   }
 
-  playCard(card) {
+  playCard(card, wildColor) {
     encodeAndSend(
       this.socket,
       dos.MessageType.PLAY,
-      dos.PlayMessage.encode({id: card.id}),
+      dos.PlayMessage.encode({id: card.id, color: wildColor}),
     );
     this.setState({hasPlayed: true});
   }

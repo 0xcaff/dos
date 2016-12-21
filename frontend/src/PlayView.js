@@ -2,17 +2,35 @@ import React, { Component } from 'react';
 import Cards from './Cards';
 import Card, { CanCover } from './Card';
 import Players from './Players';
+import { dos } from './proto';
 import './PlayView.css';
 
 class PlayView extends Component {
+  state = {
+    seekingColor: false,
+    card: null,
+  };
+
   constructor(props) {
     super(props);
 
     this.playCard = this.playCard.bind(this);
+    this.playWildCard = this.playWildCard.bind(this);
     this.beforePlayCard = this.beforePlayCard.bind(this);
   }
 
+  playWildCard(color) {
+    this.setState({seekingColor: false});
+    this.props.playCard(this.state.card, color);
+    this.props.turnDone();
+  }
+
   playCard(card, event) {
+    if (card.color === dos.CardColor.BLACK) {
+      this.setState({seekingColor: true, card: card});
+      return
+    }
+
     if (CanCover(this.props.discard, card)) {
       this.props.playCard(card);
       this.props.turnDone();
@@ -74,6 +92,24 @@ class PlayView extends Component {
             </div>
           </div>
         </div>
+
+        {this.state.seekingColor && <div className='color-picker strech'>
+          <div
+            onClick={() => this.playWildCard(dos.CardColor.YELLOW)}
+            className='top left yellow' />
+
+          <div
+            onClick={() => this.playWildCard(dos.CardColor.GREEN)}
+            className='top right green' />
+
+          <div
+            onClick={() => this.playWildCard(dos.CardColor.BLUE)}
+            className='bottom left blue' />
+
+          <div
+            onClick={() => this.playWildCard(dos.CardColor.RED)}
+            className='bottom right red' />
+        </div>}
       </div>
     );
   }
