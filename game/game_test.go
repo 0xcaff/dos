@@ -9,7 +9,7 @@ func SetupGoldilocksGame() (*Game, *Player, *Player, *Player, *Player) {
 	game := NewGame(false)
 
 	littleBear, _ := game.NewPlayer("Little, Small, Wee Bear")
-	mediumBear, _ := game.NewPlayer("Middle-sized Bear")
+	mediumBear, _ := game.NewPlayer("Medium-sized Bear")
 	hugeBear, _ := game.NewPlayer("Great, Huge Bear")
 	goldilocks, _ := game.NewPlayer("Goldilocks")
 
@@ -21,7 +21,7 @@ func SetupGoldilocksGame() (*Game, *Player, *Player, *Player, *Player) {
 func TestNextPlayer(t *testing.T) {
 	game, littleBear, mediumBear, hugeBear, goldilocks := SetupGoldilocksGame()
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 20; i++ {
 		nextPlayer := game.NextPlayer()
 		if nextPlayer != mediumBear {
 			t.Fail()
@@ -143,3 +143,25 @@ func TestDuplicateSpecial(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestRemovePlayer(t *testing.T) {
+	game, littleBear, mediumBear, hugeBear, goldilocks := SetupGoldilocksGame()
+
+	game.RemovePlayer(littleBear)
+	game.RemovePlayer(goldilocks)
+
+	if len(game.players) != 2 {
+		t.Log("Invalid number of players. Expected 2. Got: ", len(game.players))
+		t.Fail()
+	}
+
+	for i := 0; i < 20; i++ {
+		player := game.NextPlayer()
+		if player != mediumBear && player != hugeBear {
+			t.Log("Invalid player", player)
+			t.Fail()
+		}
+	}
+}
+
+// TODO: Test Special Card Actions

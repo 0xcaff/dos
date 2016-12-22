@@ -80,3 +80,9 @@ func (broadcast *Broadcaster) StartBroadcasting() {
 		broadcast.RWMutex.RUnlock()
 	}
 }
+
+func (broadcast *Broadcaster) Destroy() {
+	broadcast.RWMutex.Lock()
+	close(broadcast.receiver)
+	broadcast.RWMutex.Unlock()
+}

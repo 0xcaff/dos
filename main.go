@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
+	"time"
 
 	"github.com/caffinatedmonkey/dos/game"
 	dosProto "github.com/caffinatedmonkey/dos/proto"
@@ -16,22 +16,28 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// TODO: More logging
+// TODO: Handle players leaving during game. It works but the next player
+// doesn't get selected for some reason.
+
 // TODO: Radomness sucks
 // TODO: Matchmaking
-// TODO: Fix explosive disconnects
-var started = utils.NewBroadcaster()
-var turnBroadcaster = utils.NewBroadcaster()
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
 var game = dos.NewGame(true)
+
+var playersLeaving = make(chan *dos.Player)
+
+var started = utils.NewBroadcaster()
+var gameIsStarted = false
+var turnBroadcaster = utils.NewBroadcaster()
 var commonMessages = utils.NewBroadcaster()
 
 var (
 	listen = flag.String("listen", ":8080", "Address to serve on")
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 func main() {
 	flag.Parse()
@@ -46,36 +52,34 @@ func main() {
 	}
 
 	go turnBroadcaster.StartBroadcasting()
-	go HandleCommonMessages(game, turnBroadcaster, commonMessages)
 	go commonMessages.StartBroadcasting()
 	go started.StartBroadcasting()
 
-	fmt.Printf("[server] initializing on %s\n", *listen)
+	go HandleCommonMessages(game, turnBroadcaster, commonMessages)
+
+	log.Printf("[server] initializing on %s\n", *listen)
 	err := s.ListenAndServe()
 	log.Fatal(err)
 }
 
 func handleSocket(rw http.ResponseWriter, r *http.Request) {
-	fmt.Println("[websocket] new connection")
+	log.Println("[websocket] new connection")
 
-	rawConn, err := upgrader.Upgrade(rw, r, nil)
+	conn, err := upgrader.Upgrade(rw, r, nil)
 	if err != nil {
-		fmt.Println("[websocket] connection initialization failed", err)
+		log.Println("[websocket] connection initialization failed", err)
 		return
 	}
-
-	conn := &LockedSocket{Conn: rawConn}
 
 	handshake := dosProto.HandshakeMessage{}
 	err = Read(conn, &handshake)
 	if err != nil {
-		conn.Close()
 		return
 	}
 
 	switch handshake.Type {
 	case dosProto.ClientType_PLAYER:
-		fmt.Println("[websocket] new player client")
+		log.Println("[websocket] new player joined")
 
 		// Wait for player to be ready
 		var player *dos.Player
@@ -84,25 +88,23 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			ready := dosProto.ReadyMessage{}
 			err := ReadMessage(conn, dosProto.MessageType_READY, &ready)
 			if err != nil {
-				conn.Close()
 				return
 			}
 
 			player, err = game.NewPlayer(ready.Name)
 			if err != nil {
-				fmt.Printf("[game] %s failed to join: %v\n", ready.Name, err)
+				log.Printf("[game] (%s) failed to join: %v\n", ready.Name, err)
 				errorMessage := dosProto.ErrorMessage{Reason: err.Error()}
 
 				err := WriteMessage(conn, dosProto.MessageType_ERROR, &errorMessage)
 				if err != nil {
-					conn.Close()
 					return
 				}
+
 			} else {
-				fmt.Printf("[game] %s joined\n", ready.Name)
+				log.Printf("[game] (%s) joined\n", ready.Name)
 				err := WriteMessage(conn, dosProto.MessageType_SUCCESS, nil)
 				if err != nil {
-					conn.Close()
 					return
 				}
 				break
@@ -112,16 +114,18 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		// Handle leaving
 		oldHandler := conn.CloseHandler()
 		conn.SetCloseHandler(func(code int, text string) error {
-			// TODO: If its the players turn, handle it
-
 			// Handles a client requested close.
-			fmt.Printf("[game] player %s is leaving\n", player.Name)
+			log.Printf("[game] (%s) is leaving\n", player.Name)
 			game.RemovePlayer(player)
 
 			// Close socket
-			conn.WriteLock.Lock()
 			ret := oldHandler(code, text)
-			conn.WriteLock.Unlock()
+
+			if gameIsStarted {
+				// Notify turn mechanism
+				playersLeaving <- player
+			}
+
 			return ret
 		})
 
@@ -129,46 +133,43 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		playersMessage := dosProto.PlayersMessage{Additions: game.GetPlayerList()}
 		err = WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
 		if err != nil {
-			conn.Close()
 			return
 		}
 
-		messages := make(chan interface{})
-		commonMessages.AddListener(messages)
-
-		start := make(chan interface{})
-		started.AddListener(start)
-
-		handAdditions := make(chan interface{})
-		player.Cards.Additions.AddListener(handAdditions)
-		go player.Cards.Additions.StartBroadcasting()
-
-		handDeletions := make(chan interface{})
-		player.Cards.Deletions.AddListener(handDeletions)
-		go player.Cards.Deletions.StartBroadcasting()
-
-		turnChanged := make(chan interface{})
-		turnBroadcaster.AddListener(turnChanged)
-
-		started := false
+		isStarted := false
 		isMyTurn := false
 
 		hasDrawn := false
 		hasPlayed := false
 
 		go func() {
+			handAdditions := player.Cards.Additions.NewListener()
+			go player.Cards.Additions.StartBroadcasting()
+			// Teardown handled by RemovePlayer
+
+			handDeletions := player.Cards.Deletions.NewListener()
+			go player.Cards.Deletions.StartBroadcasting()
+			// Teardown handled by RemovePlayer
+
+			messages := commonMessages.NewListener()
+			defer close(messages)
+			defer commonMessages.RemoveListener(messages)
+
+			start := started.NewListener()
+			defer close(start)
+			defer started.RemoveListener(start)
+
+			turnChanged := turnBroadcaster.NewListener()
+			defer close(turnChanged)
+			defer turnBroadcaster.RemoveListener(turnChanged)
+
 			for {
 				var buf []byte
 				var err error
 
 				select {
 				case message := <-messages:
-					var ok bool
-					buf, ok = message.([]byte)
-					if !ok {
-						log.Println("[error] commonMessages is broadcasting a non []byte value")
-						continue
-					}
+					buf = message.([]byte)
 
 				case <-start:
 					additions := make([]*dosProto.Card, len(player.Cards.List))
@@ -177,10 +178,10 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 					}
 					changed := &dosProto.CardsChangedMessage{Additions: additions}
 					buf, err = ZipMessage(dosProto.MessageType_CARDS, changed)
-					started = true
+					isStarted = true
 
 				case deletion := <-handDeletions:
-					if !started {
+					if !isStarted {
 						continue
 					}
 
@@ -190,7 +191,7 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 					buf, err = ZipMessage(dosProto.MessageType_CARDS, msg)
 
 				case addition := <-handAdditions:
-					if !started {
+					if !isStarted {
 						continue
 					}
 
@@ -209,12 +210,13 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 
 				if err != nil {
 					log.Println("[protobuf] encoding error", err)
-					continue
+					return
 				}
 
 				err = conn.WriteMessage(websocket.BinaryMessage, buf)
 				if err != nil {
-					log.Println("[websocket] write error", err)
+					log.Println("[websocket] failed to write message", err)
+					return
 				}
 			}
 		}()
@@ -223,7 +225,6 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			envelope := dosProto.Envelope{}
 			err := Read(conn, &envelope)
 			if err != nil {
-				conn.Close()
 				return
 			}
 
@@ -235,42 +236,46 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			switch envelope.Type {
 			case dosProto.MessageType_DRAW:
 				if !hasDrawn && !hasPlayed {
-					fmt.Printf("[game] %s drawing card\n", player.Name)
+					log.Printf("[game] (%s) drawing card\n", player.Name)
 					game.DrawCards(&player.Cards, 1)
 					hasDrawn = true
 				}
 
 			case dosProto.MessageType_PLAY:
 				if !hasPlayed {
-					fmt.Printf("[game] %s playing card\n", player.Name)
+					log.Printf("[game] (%s) playing card\n", player.Name)
 
 					playMessage := dosProto.PlayMessage{}
 					err := proto.Unmarshal(envelope.Contents, &playMessage)
 					if err != nil {
-						fmt.Println("[protobuf] failed to parse message:", err)
+						log.Println("[protobuf] failed to parse message:", err)
+						conn.WriteControl(
+							websocket.CloseMessage,
+							websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
+							time.Now().Add(time.Second),
+						)
 						return
 					}
 
 					err = game.PlayCard(player, playMessage.Id, playMessage.Color)
 					if err != nil {
-						fmt.Println("[game] play failed:", err, playMessage)
+						log.Printf("[game] (%s) tried playing card and failed: %#v %#v\n", player.Name, err, playMessage)
 					} else {
-						fmt.Println("[game] played card")
+						log.Printf("[game] (%s) played card\n", player.Name)
 						hasPlayed = true
 					}
 				}
 
 			case dosProto.MessageType_DONE:
-				fmt.Println("done message sent")
 				if hasDrawn || hasPlayed {
-					fmt.Printf("[game] %s is done with turn\n", player.Name)
+					log.Printf("[game] (%s) done with turn\n", player.Name)
 					player.TurnDone <- struct{}{}
 				}
 			}
 		}
 
 	case dosProto.ClientType_SPECTATOR:
-		fmt.Println("[game] spectator joined")
+		log.Println("[websocket] spectator joined")
 
 		// Send player list
 		playersMessage := dosProto.PlayersMessage{
@@ -278,31 +283,22 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		}
 		err = WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
 		if err != nil {
-			conn.Close()
 			return
 		}
 
-		messages := make(chan interface{})
-		commonMessages.AddListener(messages)
-
+		messages := commonMessages.NewListener()
 		go func() {
 			for {
 				var buf []byte
 				var err error
 
-				select {
-				case message := <-messages:
-					var ok bool
-					buf, ok = message.([]byte)
-					if !ok {
-						log.Println("[error] commonMessages is broadcasting a non []byte value")
-						continue
-					}
-				}
+				message := <-messages
+				buf = message.([]byte)
 
 				err = conn.WriteMessage(websocket.BinaryMessage, buf)
 				if err != nil {
-					log.Println("[websocket] write error", err)
+					log.Println("[websocket] failed to write", err)
+					return
 				}
 			}
 		}()
@@ -310,38 +306,46 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		envelope := dosProto.Envelope{}
 		err := Read(conn, &envelope)
 		if err != nil {
-			conn.Close()
 			return
 		}
 
 		if envelope.Type != dosProto.MessageType_START {
 			// Start is the only message spectators can send.
+			conn.Close()
 			return
 		}
 
-		fmt.Println("[game] spectator starting game")
+		log.Println("[game] starting game")
+		gameIsStarted = true
 		started.Broadcast(nil)
 
 		for {
 			player := game.NextPlayer()
-			fmt.Printf("[game] player %s's turn\n", player.Name)
+			log.Printf("[game] (%s) turn\n", player.Name)
 			turnBroadcaster.Broadcast(player.Name)
-			<-player.TurnDone
+			select {
+			case <-player.TurnDone:
+				if len(player.Cards.List) == 0 {
+					log.Printf("[game] (%s) done with game\n", player.Name)
+					// Game Done!
+					// TODO:
+					//  Send message to players and spectators
+					//  Cleanup
+					return
+				}
 
-			if len(player.Cards.List) == 0 {
-				// Game Done!
-				// TODO:
-				//  Send message to players and spectators
-				//  Cleanup
-				return
+			case leavingPlayer := <-playersLeaving:
+				if leavingPlayer == player {
+					log.Printf("[game] (%s) disconnected, skipping turn\n", leavingPlayer.Name)
+					continue
+				}
 			}
 		}
 	}
 }
 
 func HandleCommonMessages(game *dos.Game, turnBroadcaster *utils.Broadcaster, outputMessages *utils.Broadcaster) {
-	turnChannel := make(chan interface{})
-	turnBroadcaster.AddListener(turnChannel)
+	turnChannel := turnBroadcaster.NewListener()
 
 	for {
 		var err error
@@ -370,7 +374,6 @@ func HandleCommonMessages(game *dos.Game, turnBroadcaster *utils.Broadcaster, ou
 		}
 
 		if err != nil {
-			// Encoding Error
 			log.Println("[protobuf] Encoding error", err)
 		} else {
 			outputMessages.Broadcast(bytes)
@@ -378,29 +381,38 @@ func HandleCommonMessages(game *dos.Game, turnBroadcaster *utils.Broadcaster, ou
 	}
 }
 
-func Read(conn *LockedSocket, message proto.Message) error {
-	conn.ReadLock.Lock()
+func Read(conn *websocket.Conn, message proto.Message) error {
 	format, buf, err := conn.ReadMessage()
-	conn.ReadLock.Unlock()
-	if format != websocket.BinaryMessage {
-		fmt.Println("[websocket] warning! reading non binary message")
+	if err != nil {
+		return err
 	}
 
-	if err != nil {
-		fmt.Println("[websocket] failed to read message:", err)
-		return err
+	if format != websocket.BinaryMessage {
+		log.Println("[websocket] got non binary message from", conn.RemoteAddr())
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
+			time.Now().Add(time.Second),
+		)
+
+		return fmt.Errorf("dos: got non binary message\n")
 	}
 
 	err = proto.Unmarshal(buf, message)
 	if err != nil {
-		fmt.Println("[websocket] failed to parse handshake:", err)
-		return err
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
+			time.Now().Add(time.Second),
+		)
+
+		return fmt.Errorf("[protobuf] failed to parse message: %#v", err)
 	}
 
 	return nil
 }
 
-func ReadMessage(conn *LockedSocket, typ dosProto.MessageType, message proto.Message) error {
+func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.Message) error {
 	envelope := dosProto.Envelope{}
 	err := Read(conn, &envelope)
 	if err != nil {
@@ -408,48 +420,48 @@ func ReadMessage(conn *LockedSocket, typ dosProto.MessageType, message proto.Mes
 	}
 
 	if envelope.Type != typ {
-		return fmt.Errorf("Received type %s instead of type %s", envelope.Type.String(), typ.String())
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
+			time.Now().Add(time.Second),
+		)
+		err = fmt.Errorf("Received type %s instead of type %s", envelope.Type.String(), typ.String())
+		log.Println("[websocket]", err)
+		return err
 	}
 
-	return proto.Unmarshal(envelope.Contents, message)
+	err = proto.Unmarshal(envelope.Contents, message)
 	if err != nil {
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
+			time.Now().Add(time.Second),
+		)
+
+		err = fmt.Errorf("[protobuf] failed to parse envelope: %#v", err)
+		log.Println("[websocket]", err)
 		return err
 	}
 
 	return nil
 }
 
-func Write(conn *LockedSocket, message proto.Message) error {
-	buf, err := proto.Marshal(message)
-	if err != nil {
-		fmt.Println("[websocket] failed to encode message:", err)
-		return err
-	}
-
-	conn.WriteLock.Lock()
-	err = conn.WriteMessage(websocket.BinaryMessage, buf)
-	conn.WriteLock.Unlock()
-	if err != nil {
-		fmt.Println("[websocket] failed to write message:", err)
-		return err
-	}
-
-	return nil
-}
-
-func WriteMessage(conn *LockedSocket, typ dosProto.MessageType, message proto.Message) error {
+func WriteMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.Message) error {
 	buf, err := ZipMessage(typ, message)
 	if err != nil {
-		fmt.Println("[composing] failed to compose message:", err)
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, ""),
+			time.Now().Add(time.Second),
+		)
+
+		log.Println("[protobuf] failed to compose message:", err)
 		return err
 	}
 
-	conn.WriteLock.Lock()
 	err = conn.WriteMessage(websocket.BinaryMessage, buf)
-	conn.WriteLock.Unlock()
-
 	if err != nil {
-		fmt.Println("[websocket] failed to write message:", err)
+		log.Println("[websocket] failed to write message:", err)
 		return err
 	}
 
@@ -459,8 +471,10 @@ func WriteMessage(conn *LockedSocket, typ dosProto.MessageType, message proto.Me
 func ZipMessage(typ dosProto.MessageType, message proto.Message) ([]byte, error) {
 	var buf []byte
 	var err error
+
 	if message != nil {
 		buf, err = proto.Marshal(message)
+
 		if err != nil {
 			return nil, err
 		}
@@ -471,10 +485,4 @@ func ZipMessage(typ dosProto.MessageType, message proto.Message) ([]byte, error)
 	envelope.Contents = buf
 
 	return proto.Marshal(&envelope)
-}
-
-type LockedSocket struct {
-	ReadLock  sync.Mutex
-	WriteLock sync.Mutex
-	*websocket.Conn
 }

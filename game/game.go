@@ -88,11 +88,14 @@ func (game *Game) RemovePlayer(removing *Player) {
 	newPlayers := make([]*Player, len(game.players))
 	for _, player := range game.players {
 		if player != removing {
-			i++
 			newPlayers[i] = player
+			i++
 		}
 	}
 
+	newPlayers = newPlayers[:i]
+
+	// Slice off extras
 	game.players = newPlayers
 	game.playerMutex.Unlock()
 
@@ -103,6 +106,10 @@ func (game *Game) RemovePlayer(removing *Player) {
 	if game.PlayerLeft != nil {
 		game.PlayerLeft <- removing.Name
 	}
+
+	// Destroy listeners
+	removing.Additions.Destroy()
+	removing.Deletions.Destroy()
 }
 
 func (game *Game) GetPlayerList() []string {
@@ -163,7 +170,7 @@ func (game *Game) NextPlayer() *Player {
 // Gets the player index n positions away from the current player.
 func (game *Game) GetPlayer(n int) (*Player, int) {
 	if game.isReversed {
-		n *= -1
+		n = -n
 	}
 
 	playersCount := len(game.players)
