@@ -5,6 +5,9 @@ import Players from './Players';
 import { dos } from './proto';
 import './PlayView.css';
 
+// TODO: PositionFixed looks wierd up stuff in ff mobile
+// TODO: Remove padding which hides cards at edges.
+
 class PlayView extends Component {
   state = {
     seekingColor: false,
@@ -87,6 +90,7 @@ class PlayView extends Component {
                   title={player.name}
                   className={[
                     player.active ? 'active' : undefined,
+                    player.name === this.props.name ? 'me' : undefined,
                  ].filter(className => !!className).join(' ')} />
               ))}
             </div>

@@ -50,6 +50,11 @@
   border-color: #ccc;
 }
 
+.status-dots span.active.me {
+  background: #4d4d4d;
+  border-color: #4d4d4d;
+}
+
 .color-picker {
   position: fixed;
 }

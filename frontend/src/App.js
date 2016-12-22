@@ -6,7 +6,6 @@ import Players from './Players';
 import SocketStatus from './SocketStatus';
 import { dos } from './proto';
 
-// TODO: Handle black card color selection.
 // TODO: Implement score board
 class App extends Component {
   state = {
