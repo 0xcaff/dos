@@ -12,6 +12,7 @@ import (
 	dosProto "github.com/caffinatedmonkey/dos/proto"
 	"github.com/caffinatedmonkey/dos/utils"
 
+	"github.com/GeertJohan/go.rice"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 )
@@ -37,9 +38,11 @@ var upgrader = websocket.Upgrader{
 func main() {
 	flag.Parse()
 
+	fs := SinglePageFileSystem{rice.MustFindBox("frontend/build").HTTPBox()}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/socket", handleSocket)
-	mux.Handle("/", http.FileServer(SPAFileSystem("frontend/build")))
+	mux.Handle("/", http.FileServer(fs))
 
 	s := &http.Server{
 		Addr:    *listen,

@@ -16,7 +16,6 @@ type Player struct {
 }
 
 type Game struct {
-	// TODO: Thread safe reading
 	playerMutex sync.Mutex
 	players     []*Player
 

@@ -6,6 +6,14 @@ import Players from './Players';
 import SocketStatus from './SocketStatus';
 import { dos } from './proto';
 
+var WEBSOCKET_PATH = null;
+if (process.env.NODE_ENV === 'production') {
+  const isSecure = window.location.protocol === 'https:';
+  WEBSOCKET_PATH = `${isSecure ? 'wss' : 'ws'}://${window.location.host}/socket`;
+} else {
+  WEBSOCKET_PATH = 'ws://drone.lan:8080';
+}
+
 // TODO: Implement score board
 class App extends Component {
   state = {
@@ -31,7 +39,7 @@ class App extends Component {
     this.handleSocketChange = this.handleSocketChange.bind(this);
 
     // Open Connection
-    this.socket = new WebSocket(`ws://drone.lan:8080/socket`);
+    this.socket = new WebSocket(WEBSOCKET_PATH);
     this.socket.binaryType = 'arraybuffer';
     window.onunload = () => this.socket.close();
 
