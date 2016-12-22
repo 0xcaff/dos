@@ -6,15 +6,15 @@ import Players from './Players';
 import SocketStatus from './SocketStatus';
 import { dos } from './proto';
 
-var WEBSOCKET_PATH = null;
+var host = null;
 if (process.env.NODE_ENV === 'production') {
   const isSecure = window.location.protocol === 'https:';
-  WEBSOCKET_PATH = `${isSecure ? 'wss' : 'ws'}://${window.location.host}/socket`;
+  host = `${isSecure ? 'wss' : 'ws'}://${window.location.host}`;
 } else {
-  WEBSOCKET_PATH = 'ws://drone.lan:8080';
+  host = 'ws://drone.lan:8080';
 }
+const WEBSOCKET_PATH = host + '/socket';
 
-// TODO: Implement score board
 class App extends Component {
   state = {
     view: (window.location.pathname.slice(1) || 'join'),
@@ -37,6 +37,7 @@ class App extends Component {
     this.drawCard = this.drawCard.bind(this);
     this.turnDone = this.turnDone.bind(this);
     this.handleSocketChange = this.handleSocketChange.bind(this);
+    this.handleClose = this.handleClose.bind(this);
 
     // Open Connection
     this.socket = new WebSocket(WEBSOCKET_PATH);
@@ -45,10 +46,17 @@ class App extends Component {
 
     this.socket.addEventListener('message', this.handleMessage);
     this.socket.addEventListener('close', this.handleSocketChange);
+    this.socket.addEventListener('close', this.handleClose);
     this.socket.addEventListener('open', this.handleSocketChange);
 
     // eslint-disable-next-line react/no-direct-mutation-state
     this.state.connectionStatus = this.socket.readyState;
+  }
+
+  handleClose(event) {
+    if (event.code === 1000 && event.reason === "won!") {
+      this.navigateTo('done');
+    }
   }
 
   handleSocketChange() {
@@ -211,8 +219,10 @@ class App extends Component {
                startGame={this.startGame}
                connectionStatus={this.state.connectionStatus} />
 
-    } else if (this.state.view === 'scores') {
-      // TODO: Implement
+    } else if (this.state.view === 'done') {
+      view = (<div className='flex-center'>
+        <h1>Game Done</h1>
+      </div>);
     }
 
     return (

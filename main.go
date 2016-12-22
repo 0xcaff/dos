@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -16,10 +17,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 )
-
-// TODO: Radomness sucks
-// TODO: Matchmaking
-// TODO: Implement end game
 
 var game = dos.NewGame(true)
 
@@ -38,6 +35,8 @@ var upgrader = websocket.Upgrader{
 
 func main() {
 	flag.Parse()
+
+	rand.Seed(time.Now().Unix())
 
 	fs := SinglePageFileSystem{rice.MustFindBox("frontend/build").HTTPBox()}
 
@@ -327,11 +326,15 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 				log.Printf("[game] (%s) turn done\n", player.Name)
 				if len(player.Cards.List) == 0 {
 					log.Printf("[game] (%s) done with game\n", player.Name)
-					// Game Done!
-					// TODO:
-					//  Send message to players and spectators
-					//  Cleanup
-					return
+
+					// TODO: Send to players.
+					// conn.WriteControl(
+					// 	websocket.CloseMessage,
+					// 	websocket.FormatCloseMessage(websocket.CloseNormalClosure, "won"),
+					// 	time.Now().Add(time.Second),
+					// )
+
+					game.RemovePlayer(player)
 				}
 			}
 		}
