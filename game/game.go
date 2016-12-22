@@ -7,13 +7,12 @@ import (
 	"sync"
 
 	proto "github.com/caffinatedmonkey/dos/proto"
-	"github.com/caffinatedmonkey/dos/utils"
 )
 
 type Player struct {
 	Name string
 	Cards
-	TurnDone chan interface{}
+	TurnDone chan struct{}
 }
 
 type Game struct {
@@ -24,9 +23,8 @@ type Game struct {
 	Discard Cards
 	Deck    Cards
 
-	PlayerJoined utils.Broadcaster
-	PlayerLeft   utils.Broadcaster
-	Turn         utils.Broadcaster
+	PlayerJoined chan string
+	PlayerLeft   chan string
 
 	currentPlayerIndex int
 	isReversed         bool
@@ -37,17 +35,18 @@ type Game struct {
 }
 
 // Creates a new game an initalizes its values
-func NewGame() *Game {
+func NewGame(withChannels bool) *Game {
 	// Initalize Values
 	g := Game{
-		players:      []*Player{},
-		Deck:         *PlayingDeck(),
-		PlayerJoined: *utils.NewBroadcaster(),
-		PlayerLeft:   *utils.NewBroadcaster(),
-		Turn:         *utils.NewBroadcaster(),
-
+		players:            []*Player{},
+		Deck:               *PlayingDeck(),
 		currentPlayerIndex: -1,
 		// lastPlayerPlayed:   true,
+	}
+
+	if withChannels {
+		g.PlayerJoined = make(chan string)
+		g.PlayerLeft = make(chan string)
 	}
 
 	g.Discard.Push(g.Deck.Pop())
@@ -65,7 +64,7 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	player := &Player{
 		Cards:    *NewCardCollection(),
 		Name:     name,
-		TurnDone: make(chan interface{}),
+		TurnDone: make(chan struct{}),
 	}
 	game.DrawCards(&player.Cards, 8)
 
@@ -74,7 +73,9 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	game.playerMutex.Unlock()
 
 	// Inform Listeners
-	game.PlayerJoined.Broadcast(name)
+	if game.PlayerJoined != nil {
+		game.PlayerJoined <- name
+	}
 
 	return player, nil
 }
@@ -99,7 +100,9 @@ func (game *Game) RemovePlayer(removing *Player) {
 	game.Discard.PushFront(removing.Cards.List...)
 
 	// Notify Players
-	game.PlayerLeft.Broadcast(removing.Name)
+	if game.PlayerLeft != nil {
+		game.PlayerLeft <- removing.Name
+	}
 }
 
 func (game *Game) GetPlayerList() []string {

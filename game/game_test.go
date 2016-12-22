@@ -6,7 +6,7 @@ import (
 )
 
 func SetupGoldilocksGame() (*Game, *Player, *Player, *Player, *Player) {
-	game := NewGame()
+	game := NewGame(false)
 
 	littleBear, _ := game.NewPlayer("Little, Small, Wee Bear")
 	mediumBear, _ := game.NewPlayer("Middle-sized Bear")
@@ -62,7 +62,7 @@ func TestGetPlayer(t *testing.T) {
 }
 
 func TestExpendCards(t *testing.T) {
-	game := NewGame()
+	game := NewGame(false)
 
 	lonePlayer, _ := game.NewPlayer("A lonely player")
 	game.DrawCards(&game.Discard, 99)
@@ -71,7 +71,7 @@ func TestExpendCards(t *testing.T) {
 
 func TestPlayCards(t *testing.T) {
 	// Setup game
-	game := NewGame()
+	game := NewGame(false)
 	game.Discard.Push(proto.Card{
 		Color:  proto.CardColor_RED,
 		Type:   proto.CardType_NORMAL,
@@ -112,7 +112,7 @@ func TestPlayCards(t *testing.T) {
 }
 
 func TestDuplicateSpecial(t *testing.T) {
-	game := NewGame()
+	game := NewGame(false)
 	game.currentPlayerIndex = -1
 
 	player1, _ := game.NewPlayer("Player 1")

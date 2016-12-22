@@ -23,10 +23,25 @@ func NewBroadcaster() *Broadcaster {
 	return broadcaster
 }
 
+func NewBroadcasterFromChan(channel chan interface{}) *Broadcaster {
+	broadcaster := &Broadcaster{
+		receiver: channel,
+		isLive:   false,
+	}
+
+	return broadcaster
+}
+
 func (broadcast *Broadcaster) AddListener(channel chan interface{}) {
 	broadcast.RWMutex.Lock()
 	broadcast.listeners = append(broadcast.listeners, channel)
 	broadcast.RWMutex.Unlock()
+}
+
+func (broadcast *Broadcaster) NewListener() chan interface{} {
+	channel := make(chan interface{})
+	broadcast.AddListener(channel)
+	return channel
 }
 
 func (broadcast *Broadcaster) RemoveListener(channel chan interface{}) {
