@@ -64,7 +64,7 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	player := &Player{
 		Cards:    *NewCardCollection(),
 		Name:     name,
-		TurnDone: make(chan struct{}),
+		TurnDone: make(chan struct{}, 1),
 	}
 	game.DrawCards(&player.Cards, 8)
 

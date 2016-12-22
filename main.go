@@ -16,15 +16,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// TODO: Handle players leaving during game. It works but the next player
-// doesn't get selected for some reason.
-
 // TODO: Radomness sucks
 // TODO: Matchmaking
 
 var game = dos.NewGame(true)
-
-var playersLeaving = make(chan *dos.Player)
 
 var started = utils.NewBroadcaster()
 var gameIsStarted = false
@@ -114,17 +109,12 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		// Handle leaving
 		oldHandler := conn.CloseHandler()
 		conn.SetCloseHandler(func(code int, text string) error {
-			// Handles a client requested close.
 			log.Printf("[game] (%s) is leaving\n", player.Name)
-			game.RemovePlayer(player)
-
 			// Close socket
 			ret := oldHandler(code, text)
 
-			if gameIsStarted {
-				// Notify turn mechanism
-				playersLeaving <- player
-			}
+			game.RemovePlayer(player)
+			player.TurnDone <- struct{}{}
 
 			return ret
 		})
@@ -145,22 +135,19 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 		go func() {
 			handAdditions := player.Cards.Additions.NewListener()
 			go player.Cards.Additions.StartBroadcasting()
-			// Teardown handled by RemovePlayer
+			defer player.Cards.Additions.Destroy()
 
 			handDeletions := player.Cards.Deletions.NewListener()
 			go player.Cards.Deletions.StartBroadcasting()
-			// Teardown handled by RemovePlayer
+			defer player.Cards.Additions.Destroy()
 
 			messages := commonMessages.NewListener()
-			defer close(messages)
 			defer commonMessages.RemoveListener(messages)
 
 			start := started.NewListener()
-			defer close(start)
 			defer started.RemoveListener(start)
 
 			turnChanged := turnBroadcaster.NewListener()
-			defer close(turnChanged)
 			defer turnBroadcaster.RemoveListener(turnChanged)
 
 			for {
@@ -311,11 +298,16 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 
 		if envelope.Type != dosProto.MessageType_START {
 			// Start is the only message spectators can send.
-			conn.Close()
+			conn.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
+				time.Now().Add(time.Second),
+			)
 			return
 		}
 
-		log.Println("[game] starting game")
+		log.Println("[game] starting")
+
 		gameIsStarted = true
 		started.Broadcast(nil)
 
@@ -323,8 +315,10 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			player := game.NextPlayer()
 			log.Printf("[game] (%s) turn\n", player.Name)
 			turnBroadcaster.Broadcast(player.Name)
+
 			select {
 			case <-player.TurnDone:
+				log.Printf("[game] (%s) turn done\n", player.Name)
 				if len(player.Cards.List) == 0 {
 					log.Printf("[game] (%s) done with game\n", player.Name)
 					// Game Done!
@@ -332,12 +326,6 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 					//  Send message to players and spectators
 					//  Cleanup
 					return
-				}
-
-			case leavingPlayer := <-playersLeaving:
-				if leavingPlayer == player {
-					log.Printf("[game] (%s) disconnected, skipping turn\n", leavingPlayer.Name)
-					continue
 				}
 			}
 		}

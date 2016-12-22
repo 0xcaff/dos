@@ -65,6 +65,9 @@ func (broadcast *Broadcaster) Broadcast(thing interface{}) {
 	broadcast.receiver <- thing
 }
 
+// Sends broadcasted events to all receivers. Every call after the first returns
+// immediately. Only exit once the receiver channel is closed or Destroy() is
+// called.
 func (broadcast *Broadcaster) StartBroadcasting() {
 	if broadcast.isLive {
 		// Already broadcasting
@@ -81,6 +84,8 @@ func (broadcast *Broadcaster) StartBroadcasting() {
 	}
 }
 
+// Destroys broadcaster. After a broadcaster is destroyed, all calls to
+// StartBroadcast() return and calls to Broadcast() panic.
 func (broadcast *Broadcaster) Destroy() {
 	broadcast.RWMutex.Lock()
 	close(broadcast.receiver)
