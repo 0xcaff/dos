@@ -2,7 +2,6 @@ package dos
 
 import (
 	"errors"
-	// "log"
 	"math/rand"
 	"sync"
 

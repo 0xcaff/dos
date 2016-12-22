@@ -19,6 +19,7 @@ import (
 
 // TODO: Radomness sucks
 // TODO: Matchmaking
+// TODO: Implement end game
 
 var game = dos.NewGame(true)
 
@@ -276,8 +277,10 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		messages := commonMessages.NewListener()
 		go func() {
+			messages := commonMessages.NewListener()
+			defer commonMessages.RemoveListener(messages)
+
 			for {
 				var buf []byte
 				var err error
