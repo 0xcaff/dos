@@ -1,14 +1,14 @@
-syntax = "proto2";
+syntax = "proto3";
 package dos;
 
 import "proto/card.proto";
 
 // Message sent to all clients after a player plays a card.
-message NextTunrMessage {
+message TurnMessage {
 	// The name of player whose turn it is next.
-	required string player = 1;
+	string player = 1;
 
 	// The card on the top of the discard pile.
-	required Card last_played = 2;
+	Card last_played = 2;
 }
 

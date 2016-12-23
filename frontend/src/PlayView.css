@@ -1,0 +1,84 @@
+.play-view {
+  width: 100%;
+  max-width: 15em;
+
+  margin: 0 auto;
+  margin-top: 5em;
+}
+
+.play-view .actions {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+
+  box-shadow: 0 0 5px 0 #aaa;
+  background: white;
+}
+
+.play-view .actions .container {
+  width: 100%;
+  margin: 1em auto;
+  margin-bottom: 0.5em;
+}
+
+.play-view .actions button {
+  max-width: 15em;
+  width: 100%;
+  height: 2em;
+  margin: 1em auto;
+  display: block;
+}
+
+.status-dots {
+  text-align: center;
+}
+
+.status-dots span {
+  display: inline-block;
+  border-radius: 50%;
+  background: white;
+  width: 1em;
+  height: 1em;
+  margin: 0 0.1em;
+  border: 1px solid #eee;
+}
+
+.status-dots span.active {
+  background: #ccc;
+  border-color: #ccc;
+}
+
+.status-dots span.active.me {
+  background: #4d4d4d;
+  border-color: #4d4d4d;
+}
+
+.color-picker {
+  position: fixed;
+}
+
+.color-picker .top, .color-picker .bottom {
+  position: absolute;
+  height: 50%;
+  width: 50%;
+  background: var(--bg-color);
+}
+
+.color-picker .top {
+  top: 0;
+}
+
+.color-picker .left {
+  left: 0;
+}
+
+.color-picker .right {
+  right: 0;
+}
+
+.color-picker .bottom {
+  bottom: 0;
+}
+

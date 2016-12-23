@@ -1,11 +1,14 @@
-syntax = "proto2";
+syntax = "proto3";
 package dos;
 
 import "proto/card.proto";
 
 // Message sent from a player client when they play a card.
 message PlayMessage {
-	// The index of the card in the player's hand to play.
-	required int32 card = 1;
+	// Id of the card in the player's hand to play.
+	int32 id = 2;
+
+	// If the card is black, the desired color of the card.
+	CardColor color = 3;
 }
 

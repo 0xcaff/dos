@@ -1,0 +1,33 @@
+html, body, #root, #root > div {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+
+  font-family: sans-serif;
+}
+
+#root {
+  padding: 1em;
+  box-sizing: border-box;
+}
+
+.flex-center {
+  display: flex;
+  height: calc(100vh - 2em);
+  min-height: 100%;
+
+  justify-content: center;
+  align-items: center;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+button {
+  height: 2em;
+}
+

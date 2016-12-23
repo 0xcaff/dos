@@ -1,10 +1,10 @@
-syntax = "proto2";
+syntax = "proto3";
 package dos;
 
 // Message sent from player client when the player has chosen a name and is
 // ready.
 message ReadyMessage {
 	// The name of the player.
-	required string name = 1;
+	string name = 1;
 }
 
