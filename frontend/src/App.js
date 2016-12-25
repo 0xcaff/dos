@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import JoinView from './JoinView';
+import InputView from './InputView';
 import PlayView from './PlayView';
 import SpectatorView from './SpectatorView';
 import Players from './Players';
@@ -25,12 +25,14 @@ class App extends Component {
     name: '',
     hasDrawn: false,
     hasPlayed: false,
+    started: false,
   }
 
   constructor(props) {
     super(props);
 
     this.setName = this.setName.bind(this);
+    this.setSession = this.setSession.bind(this);
     this.startGame = this.startGame.bind(this);
     this.handleMessage = this.handleMessage.bind(this);
     this.playCard = this.playCard.bind(this);
@@ -43,6 +45,19 @@ class App extends Component {
     this.socket = new WebSocket(WEBSOCKET_PATH);
     this.socket.binaryType = 'arraybuffer';
     window.onunload = () => this.socket.close();
+
+    // Send handshake message
+    this.socket.onopen = () => {
+      if (this.state.view === 'join') {
+        // TODO: Bug in protobufjs causes empty messages to crash.
+        this.socket.send(new Uint8Array([]));
+      } else if (this.state.view === 'spectate') {
+        const handshake = dos.HandshakeMessage.encode({
+          type: dos.ClientType.SPECTATOR
+        }).finish();
+        this.socket.send(handshake);
+      }
+    }
 
     this.socket.addEventListener('message', this.handleMessage);
     this.socket.addEventListener('close', this.handleSocketChange);
@@ -82,12 +97,26 @@ class App extends Component {
           name: name,
           view: 'lobby',
         });
-      } else if (envelope.type === dos.MessageType.ERROR) {
-        const errorMessage = dos.ErrorMessage.decode(envelope.contents);
+      }
+    }
 
-        this.setState({
-          error: errorMessage.reason,
-        });
+    this.socket.addEventListener('message', messageHandler);
+  }
+
+  setSession(session) {
+    encodeAndSend(
+      this.socket,
+      dos.MessageType.SESSION,
+      dos.SessionMessage.encode({session: session}),
+    );
+
+    const messageHandler = (event) => {
+      const data = new Uint8Array(event.data);
+      const envelope = dos.Envelope.decode(data);
+      this.socket.removeEventListener('message', messageHandler);
+
+      if (envelope.type === dos.MessageType.SUCCESS) {
+        this.setState({session: session});
       }
     }
 
@@ -180,19 +209,42 @@ class App extends Component {
         discard: turnMessage.lastPlayed,
         hasDrawn: false,
         hasPlayed: false,
+        started: true,
       });
+    } else if (envelope.type === dos.MessageType.SESSION) {
+      const sessionMessage = dos.SessionMessage.decode(envelope.contents);
+      console.log(sessionMessage);
+
+      this.setState({session: sessionMessage.session});
+    } else if (envelope.type === dos.MessageType.ERROR) {
+      const errorMessage = dos.ErrorMessage.decode(envelope.contents);
+
+      this.setState({error: errorMessage.reason});
     }
   }
 
   render() {
     let view;
     if (this.state.view === 'join') {
-      view = <JoinView
-               socket={this.socket}
-               connectionStatus={this.state.connectionStatus}
-               setName={this.setName}
-               error={this.state.error} />
+      const disconnected = this.state.connectionStatus !== 1;
 
+      if (!this.state.session) {
+        view = <InputView
+          // Required to prevent reconciliation.
+          // https://facebook.github.io/react/docs/reconciliation.html
+          key='session'
+          placeholder='Game PIN'
+          onSubmit={this.setSession}
+          error={this.state.error}
+          disabled={disconnected} />
+      } else {
+        view = <InputView
+          key='name'
+          placeholder='Name'
+          onSubmit={this.setName}
+          error={this.state.error}
+          disabled={disconnected} />
+      }
     } else if (this.state.view === 'lobby') {
       view = (<div className='flex-center'>
         <Players
@@ -213,9 +265,10 @@ class App extends Component {
 
     } else if (this.state.view === 'spectate') {
       view = <SpectatorView
-               socket={this.socket}
                discard={this.state.discard}
                players={this.state.players}
+               session={this.state.session}
+               started={this.state.started}
                startGame={this.startGame}
                connectionStatus={this.state.connectionStatus} />
 

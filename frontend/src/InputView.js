@@ -1,17 +1,13 @@
 import React, { Component } from 'react';
-import './JoinView.css'
+import './InputView.css'
 
-class JoinView extends Component {
+class InputView extends Component {
   state = {
-    name: '',
+    input: '',
   }
 
   constructor(props) {
     super(props);
-
-    // Send player handshake message
-    // TODO: Bug in protobufjs causes empty messages to crash.
-    props.socket.onopen = () => props.socket.send(new Uint8Array([]));
 
     this.handleSubmit = this.handleSubmit.bind(this);
     this.handleInput = this.handleInput.bind(this);
@@ -21,33 +17,31 @@ class JoinView extends Component {
     event.stopPropagation();
     event.preventDefault();
 
-    this.props.setName(this.state.name);
+    this.props.onSubmit(this.state.input);
   }
 
   handleInput(event) {
-    this.setState({name: event.target.value});
+    this.setState({input: event.target.value});
   }
 
   render() {
-    const disabled = this.props.connectionStatus !== 1;
-
     return (
       <div className='flex-center'>
-        <div className='join-view'>
+        <div className='input-view'>
           <h1>Dos</h1>
 
           <form onSubmit={this.handleSubmit}>
             <input
               type='text'
-              placeholder='Name'
+              placeholder={this.props.placeholder}
               onChange={this.handleInput}
-              disabled={disabled} />
+              disabled={this.props.disabled}
+              value={this.state.input} />
 
             <button
-              disabled={this.state.name.length === 0 || disabled}>
+              disabled={this.state.input.length === 0 || this.props.disabled}>
                 Join Game
             </button>
-
           </form>
 
           { this.props.error && <div className='error'>
@@ -59,4 +53,4 @@ class JoinView extends Component {
   }
 }
 
-export default JoinView;
+export default InputView;

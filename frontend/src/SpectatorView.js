@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import Players from './Players';
 import Card from './Card';
-import { dos } from './proto';
 import './SpectatorView.css'
 
 class SpectatorView extends Component {
@@ -9,29 +8,35 @@ class SpectatorView extends Component {
     super(props);
 
     this.startGame = this.props.startGame.bind(this);
-
-    const handshake = dos.HandshakeMessage.encode({
-      type: dos.ClientType.SPECTATOR
-    }).finish();
-    this.props.socket.onopen = () => this.props.socket.send(handshake);
   }
 
   render() {
     return (
       <div className='spectator-view'>
+        { !this.props.started &&
+          <div className='session'>
+            <h1>Game PIN</h1>
+            <h1>{this.props.session}</h1>
+          </div>
+        }
+
         <div className='players'>
           <Players
             players={this.props.players} />
 
-          <button
-            onClick={this.props.startGame}
-            disabled={this.props.connectionStatus !== 1}>Start Game!</button>
+          { !this.props.started &&
+            <button
+              onClick={this.props.startGame}
+              disabled={this.props.connectionStatus !== 1}>Start Game!</button>
+          }
         </div>
 
-        <div className='discard'>
-          <Card
-            card={this.props.discard} />
-        </div>
+        { this.props.started &&
+          <div className='discard'>
+            <Card
+              card={this.props.discard} />
+          </div>
+        }
       </div>
     );
   }
