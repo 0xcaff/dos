@@ -164,4 +164,13 @@ func TestRemovePlayer(t *testing.T) {
 	}
 }
 
+func TestNextPlayerEmpty(t *testing.T) {
+	game := NewGame(false)
+	player := game.NextPlayer()
+	if player != nil {
+		t.Log("Player in empty game", player)
+		t.Fail()
+	}
+}
+
 // TODO: Test Special Card Actions

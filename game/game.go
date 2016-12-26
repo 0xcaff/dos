@@ -32,7 +32,7 @@ type Game struct {
 	lastCardPlayed bool
 }
 
-// Creates a new game an initalizes its values
+// Creates a new game an initalizes its values.
 func NewGame(withChannels bool) *Game {
 	// Initalize Values
 	g := Game{
@@ -51,7 +51,8 @@ func NewGame(withChannels bool) *Game {
 	return &g
 }
 
-// Creates a new player, populates its deck and adds it to the game
+// Creates a new player, populates its deck and adds it to the game, notifying
+// PlayerJoined.
 func (game *Game) NewPlayer(name string) (*Player, error) {
 	for _, player := range game.players {
 		if player.Name == name {
@@ -78,6 +79,8 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	return player, nil
 }
 
+// If player in game, removes them from the game and send a message to the
+// PlayerLeft channel.
 func (game *Game) RemovePlayer(removing *Player) {
 	game.playerMutex.Lock()
 
@@ -104,10 +107,6 @@ func (game *Game) RemovePlayer(removing *Player) {
 	if game.PlayerLeft != nil {
 		game.PlayerLeft <- removing.Name
 	}
-
-	// Destroy listeners
-	removing.Additions.Destroy()
-	removing.Deletions.Destroy()
 }
 
 func (game *Game) GetPlayerList() []string {
@@ -121,8 +120,12 @@ func (game *Game) GetPlayerList() []string {
 }
 
 // Called after a player completes their turn. Get's the player who is to play
-// next.
+// next. Returns nil if there aren't enough players.
 func (game *Game) NextPlayer() *Player {
+	if len(game.players) < 2 {
+		return nil
+	}
+
 	// If this is the first turn, pick a random player
 	if game.currentPlayerIndex == -1 {
 		game.currentPlayerIndex = rand.Intn(len(game.players) - 1)

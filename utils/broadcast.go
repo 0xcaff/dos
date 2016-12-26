@@ -53,6 +53,11 @@ func (broadcast *Broadcaster) RemoveListener(channel chan interface{}) {
 			newListeners = append(newListeners, listener)
 		}
 	}
+
+	if len(broadcast.listeners) == len(newListeners) {
+		panic("Tried to remove a listener from a broadcaster which didn't have it.")
+	}
+
 	broadcast.listeners = newListeners
 	broadcast.RWMutex.Unlock()
 }

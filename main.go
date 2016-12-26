@@ -25,7 +25,7 @@ var StoreMutex sync.Mutex
 var (
 	listen   = flag.String("listen", ":8080", "Address to serve on")
 	upgrader = websocket.Upgrader{
-		// TODO: Implement
+		// The reverse proxy will have to enfore origin policies.
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 )
@@ -78,10 +78,14 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 
 type GameState struct {
 	Game           *dos.Game
+	CommonMessages utils.Broadcaster
 	Started        utils.Broadcaster
 	Turn           utils.Broadcaster
-	CommonMessages utils.Broadcaster
-	IsStarted      bool
+
+	// Notify players when they should disconnect.
+	PlayerDone    utils.Broadcaster
+	SpectatorDone utils.Broadcaster
+	IsStarted     bool
 }
 
 // Encodes messages common to all clients and broadcasts them on CommonMessages.
@@ -122,6 +126,20 @@ func (state *GameState) HandleMessages() {
 	}
 }
 
+// Removes the state from the global store.
+func (state *GameState) Destroy(id int32) {
+	StoreMutex.Lock()
+	delete(GameStore, id)
+	StoreMutex.Unlock()
+}
+
+type CloseMessage struct {
+	// The player for which this close message is for.
+	Name string
+	Code int
+	Text string
+}
+
 // TODO: Better logging with logrus
 func handleSpectator(conn *websocket.Conn) {
 	log.Println("[websocket] spectator joined")
@@ -138,23 +156,42 @@ func handleSpectator(conn *websocket.Conn) {
 		Started:        *utils.NewBroadcaster(),
 		Turn:           *utils.NewBroadcaster(),
 		CommonMessages: *utils.NewBroadcaster(),
+		PlayerDone:     *utils.NewBroadcaster(),
+		SpectatorDone:  *utils.NewBroadcaster(),
 		IsStarted:      false,
 	}
 
-	go state.Turn.StartBroadcasting()
-	go state.CommonMessages.StartBroadcasting()
 	go state.Started.StartBroadcasting()
+	go state.Turn.StartBroadcasting()
+	go state.PlayerDone.StartBroadcasting()
+	go state.SpectatorDone.StartBroadcasting()
+	defer state.SpectatorDone.Broadcast(nil)
+
+	go state.CommonMessages.StartBroadcasting()
 	go state.HandleMessages()
 
 	StoreMutex.Lock()
 	GameStore[session] = state
 	StoreMutex.Unlock()
 
+	oldCloseHandler := conn.CloseHandler()
+	conn.SetCloseHandler(func(code int, text string) error {
+		err := oldCloseHandler(code, text)
+		log.Println("[game] spectator disconnected")
+		state.Destroy(session)
+		state.SpectatorDone.Broadcast(nil)
+		return err
+	})
+
 	defer func() {
-		// TODO: Disconnect Players
-		StoreMutex.Lock()
-		delete(GameStore, session)
-		StoreMutex.Unlock()
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+			time.Now().Add(time.Second),
+		)
+		log.Println("[websocket] closed spectator socket")
+
+		state.Destroy(session)
 	}()
 
 	go func() {
@@ -189,6 +226,25 @@ func handleSpectator(conn *websocket.Conn) {
 		return
 	}
 
+	go func() {
+		// Even though spectators aren't allowed to send anything, keep an
+		// active read so the close handler works.
+		err = Read(conn, nil)
+
+		log.Println("[websocket] read data from spectator", err)
+
+		// Client sent us some garbage. Time to take out the trash.
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
+			time.Now().Add(time.Second),
+		)
+
+		// TODO: Does a WriteControl close message trigger the teardown process?
+
+		return
+	}()
+
 	log.Println("[game] starting")
 
 	state.IsStarted = true
@@ -196,23 +252,27 @@ func handleSpectator(conn *websocket.Conn) {
 
 	for {
 		player := game.NextPlayer()
+		if player == nil {
+			// Game is done or there aren't enough players.
+			return
+		}
+
 		log.Printf("[game] (%s) turn\n", player.Name)
 		state.Turn.Broadcast(player.Name)
 
 		select {
+		// TODO: Kill Early If There Aren't Enough Players
 		case <-player.TurnDone:
 			log.Printf("[game] (%s) turn done\n", player.Name)
 			if len(player.Cards.List) == 0 {
 				log.Printf("[game] (%s) done with game\n", player.Name)
 
-				// TODO: Send to players.
-				// conn.WriteControl(
-				// 	websocket.CloseMessage,
-				// 	websocket.FormatCloseMessage(websocket.CloseNormalClosure, "won"),
-				// 	time.Now().Add(time.Second),
-				// )
-
-				game.RemovePlayer(player)
+				closeMessage := &CloseMessage{
+					Name: player.Name,
+					Code: websocket.CloseNormalClosure,
+					Text: "won!",
+				}
+				state.PlayerDone.Broadcast(closeMessage)
 			}
 		}
 	}
@@ -262,6 +322,7 @@ func handlePlayer(conn *websocket.Conn) {
 			return
 		}
 
+		// TODO: possibly block empty player names ""
 		player, err = game.NewPlayer(ready.Name)
 		if err != nil {
 			log.Printf("[game] (%s) failed to join: %v\n", ready.Name, err)
@@ -282,40 +343,28 @@ func handlePlayer(conn *websocket.Conn) {
 		}
 	}
 
-	// Handle leaving
-	oldHandler := conn.CloseHandler()
-	conn.SetCloseHandler(func(code int, text string) error {
-		log.Printf("[game] (%s) is leaving\n", player.Name)
-		// Close socket
-		ret := oldHandler(code, text)
-
-		game.RemovePlayer(player)
-		player.TurnDone <- struct{}{}
-
-		return ret
-	})
-
-	// Send player list
-	playersMessage := dosProto.PlayersMessage{Additions: game.GetPlayerList()}
-	err := WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
-	if err != nil {
-		return
-	}
-
 	isStarted := false
 	isMyTurn := false
 
 	hasDrawn := false
 	hasPlayed := false
 
+	// This goroutine controls write access to the socket.
 	go func() {
+		// Send player list
+		playersMessage := dosProto.PlayersMessage{Additions: game.GetPlayerList()}
+		err := WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
+		if err != nil {
+			return
+		}
+
 		handAdditions := player.Cards.Additions.NewListener()
 		go player.Cards.Additions.StartBroadcasting()
 		defer player.Cards.Additions.Destroy()
 
 		handDeletions := player.Cards.Deletions.NewListener()
 		go player.Cards.Deletions.StartBroadcasting()
-		defer player.Cards.Additions.Destroy()
+		defer player.Cards.Deletions.Destroy()
 
 		messages := state.CommonMessages.NewListener()
 		defer state.CommonMessages.RemoveListener(messages)
@@ -325,6 +374,12 @@ func handlePlayer(conn *websocket.Conn) {
 
 		turnChanged := state.Turn.NewListener()
 		defer state.Turn.RemoveListener(turnChanged)
+
+		playerDone := state.PlayerDone.NewListener()
+		defer state.PlayerDone.RemoveListener(playerDone)
+
+		spectatorDone := state.SpectatorDone.NewListener()
+		defer state.SpectatorDone.RemoveListener(spectatorDone)
 
 		for {
 			var buf []byte
@@ -370,7 +425,36 @@ func handlePlayer(conn *websocket.Conn) {
 				hasPlayed = false
 				continue
 
-				// TODO: GameDone Broadcaster
+			case rawDoneMessage := <-playerDone:
+				doneMessage := rawDoneMessage.(*CloseMessage)
+				if doneMessage.Name != player.Name {
+					// This message is for someone else.
+					continue
+				}
+
+				// Teardown
+				conn.WriteControl(
+					websocket.CloseMessage,
+					websocket.FormatCloseMessage(doneMessage.Code, doneMessage.Text),
+					time.Now().Add(time.Second),
+				)
+
+				game.RemovePlayer(player)
+
+				// Notify Spectator If Turn Active, Otherwise Ignored
+				player.TurnDone <- struct{}{}
+
+				return
+
+			case <-spectatorDone:
+				// Teardown Connection. Everything Else Will Be GC'd
+				conn.WriteControl(
+					websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+					time.Now().Add(time.Second),
+				)
+
+				return
 			}
 
 			if err != nil {
@@ -385,6 +469,19 @@ func handlePlayer(conn *websocket.Conn) {
 			}
 		}
 	}()
+
+	// Handle leaving
+	conn.SetCloseHandler(func(code int, text string) error {
+		log.Printf("[game] (%s) is leaving\n", player.Name)
+		state.PlayerDone.Broadcast(&CloseMessage{
+			Name: player.Name,
+			Code: code,
+			Text: text,
+		})
+
+		// TODO: Is this going to be an issue?
+		return nil
+	})
 
 	for {
 		envelope := dosProto.Envelope{}
@@ -454,7 +551,11 @@ func Read(conn *websocket.Conn, message proto.Message) error {
 			time.Now().Add(time.Second),
 		)
 
-		return fmt.Errorf("dos: got non binary message\n")
+		return fmt.Errorf("dos: got non binary message")
+	}
+
+	if message == nil {
+		return nil
 	}
 
 	err = proto.Unmarshal(buf, message)
