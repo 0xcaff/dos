@@ -17,10 +17,11 @@ enum MessageType {
 	DONE = 5;
 
 	READY = 6;
-	START = 7;
+	SESSION = 7;
+	START = 8;
 
-	ERROR = 8;
-	SUCCESS = 9;
+	ERROR = 9;
+	SUCCESS = 10;
 }
 
 message ErrorMessage {

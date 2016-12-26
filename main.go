@@ -1,4 +1,4 @@
-//go:generate protoc --go_out=. proto/card.proto proto/handshake.proto proto/ready.proto proto/changed.proto proto/players.proto proto/turn.proto proto/envelope.proto proto/play.proto
+//go:generate protoc --go_out=. proto/card.proto proto/handshake.proto proto/ready.proto proto/changed.proto proto/players.proto proto/turn.proto proto/envelope.proto proto/play.proto proto/session.proto
 package main
 
 import (
@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/caffinatedmonkey/dos/game"
@@ -18,24 +19,21 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var game = dos.NewGame(true)
-
-var started = utils.NewBroadcaster()
-var gameIsStarted = false
-var turnBroadcaster = utils.NewBroadcaster()
-var commonMessages = utils.NewBroadcaster()
+var GameStore = make(map[int32]*GameState)
+var StoreMutex sync.Mutex
 
 var (
-	listen = flag.String("listen", ":8080", "Address to serve on")
+	listen   = flag.String("listen", ":8080", "Address to serve on")
+	upgrader = websocket.Upgrader{
+		// TODO: Implement
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
 )
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
 
 func main() {
 	flag.Parse()
 
+	// TODO: Doesn't seed for every random
 	rand.Seed(time.Now().Unix())
 
 	fs := SinglePageFileSystem{rice.MustFindBox("frontend/build").HTTPBox()}
@@ -48,12 +46,6 @@ func main() {
 		Addr:    *listen,
 		Handler: mux,
 	}
-
-	go turnBroadcaster.StartBroadcasting()
-	go commonMessages.StartBroadcasting()
-	go started.StartBroadcasting()
-
-	go HandleCommonMessages(game, turnBroadcaster, commonMessages)
 
 	log.Printf("[server] initializing on %s\n", *listen)
 	err := s.ListenAndServe()
@@ -84,21 +76,97 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type GameState struct {
+	Game           *dos.Game
+	Started        utils.Broadcaster
+	Turn           utils.Broadcaster
+	CommonMessages utils.Broadcaster
+	IsStarted      bool
+}
+
+// Encodes messages common to all clients and broadcasts them on CommonMessages.
+func (state *GameState) HandleMessages() {
+	turnChannel := state.Turn.NewListener()
+
+	for {
+		var err error
+		var bytes []byte
+
+		select {
+		case newPlayer := <-state.Game.PlayerJoined:
+			msg := &dosProto.PlayersMessage{
+				Additions: []string{newPlayer},
+			}
+			bytes, err = ZipMessage(dosProto.MessageType_PLAYERS, msg)
+
+		case leavingPlayer := <-state.Game.PlayerLeft:
+			msg := &dosProto.PlayersMessage{
+				Deletions: []string{leavingPlayer},
+			}
+			bytes, err = ZipMessage(dosProto.MessageType_PLAYERS, msg)
+
+		case nextPlayer := <-turnChannel:
+			lastCard := state.Game.Discard.List[len(state.Game.Discard.List)-1]
+			msg := &dosProto.TurnMessage{
+				LastPlayed: &lastCard,
+				Player:     nextPlayer.(string),
+			}
+			bytes, err = ZipMessage(dosProto.MessageType_TURN, msg)
+		}
+
+		if err != nil {
+			log.Println("[protobuf] Encoding error", err)
+		} else {
+			state.CommonMessages.Broadcast(bytes)
+		}
+	}
+}
+
+// TODO: Better logging with logrus
 func handleSpectator(conn *websocket.Conn) {
 	log.Println("[websocket] spectator joined")
 
-	// Send player list
-	playersMessage := dosProto.PlayersMessage{
-		Additions: game.GetPlayerList(),
-	}
-	err = WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
-	if err != nil {
-		return
+	// Get an unused session id
+	var session int32
+	for ok := true; ok; _, ok = GameStore[session] {
+		session = rand.Int31n(1000000)
 	}
 
+	game := dos.NewGame(true)
+	state := &GameState{
+		Game:           game,
+		Started:        *utils.NewBroadcaster(),
+		Turn:           *utils.NewBroadcaster(),
+		CommonMessages: *utils.NewBroadcaster(),
+		IsStarted:      false,
+	}
+
+	go state.Turn.StartBroadcasting()
+	go state.CommonMessages.StartBroadcasting()
+	go state.Started.StartBroadcasting()
+	go state.HandleMessages()
+
+	StoreMutex.Lock()
+	GameStore[session] = state
+	StoreMutex.Unlock()
+
+	defer func() {
+		// TODO: Disconnect Players
+		StoreMutex.Lock()
+		delete(GameStore, session)
+		StoreMutex.Unlock()
+	}()
+
 	go func() {
-		messages := commonMessages.NewListener()
-		defer commonMessages.RemoveListener(messages)
+		// Send Session ID For Display
+		sessionMessage := dosProto.SessionMessage{Session: session}
+		err := WriteMessage(conn, dosProto.MessageType_SESSION, &sessionMessage)
+		if err != nil {
+			return
+		}
+
+		messages := state.CommonMessages.NewListener()
+		defer state.CommonMessages.RemoveListener(messages)
 
 		for {
 			var buf []byte
@@ -115,31 +183,21 @@ func handleSpectator(conn *websocket.Conn) {
 		}
 	}()
 
-	envelope := dosProto.Envelope{}
-	err := Read(conn, &envelope)
+	// Start is the only message spectators can send.
+	err := ReadMessage(conn, dosProto.MessageType_START, nil)
 	if err != nil {
-		return
-	}
-
-	if envelope.Type != dosProto.MessageType_START {
-		// Start is the only message spectators can send.
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
-			time.Now().Add(time.Second),
-		)
 		return
 	}
 
 	log.Println("[game] starting")
 
-	gameIsStarted = true
-	started.Broadcast(nil)
+	state.IsStarted = true
+	state.Started.Broadcast(nil)
 
 	for {
 		player := game.NextPlayer()
 		log.Printf("[game] (%s) turn\n", player.Name)
-		turnBroadcaster.Broadcast(player.Name)
+		state.Turn.Broadcast(player.Name)
 
 		select {
 		case <-player.TurnDone:
@@ -163,9 +221,40 @@ func handleSpectator(conn *websocket.Conn) {
 func handlePlayer(conn *websocket.Conn) {
 	log.Println("[websocket] new player joined")
 
+	// TODO: limit this and kill connection when it goes over.
+	var state *GameState
+	for {
+		sessionMessage := &dosProto.SessionMessage{}
+		err := ReadMessage(conn, dosProto.MessageType_SESSION, sessionMessage)
+		if err != nil {
+			return
+		}
+
+		var ok bool
+		state, ok = GameStore[sessionMessage.Session]
+		if !ok {
+			errorMessage := dosProto.ErrorMessage{
+				Reason: "Invalid Game PIN. That game doesn't exist.",
+			}
+
+			err := WriteMessage(conn, dosProto.MessageType_ERROR, &errorMessage)
+			if err != nil {
+				return
+			}
+		} else {
+			err := WriteMessage(conn, dosProto.MessageType_SUCCESS, nil)
+			if err != nil {
+				return
+			}
+			break
+		}
+	}
+	game := state.Game
+
 	// Wait for player to be ready
 	var player *dos.Player
 
+	// TODO: limit this
 	for {
 		ready := dosProto.ReadyMessage{}
 		err := ReadMessage(conn, dosProto.MessageType_READY, &ready)
@@ -208,7 +297,7 @@ func handlePlayer(conn *websocket.Conn) {
 
 	// Send player list
 	playersMessage := dosProto.PlayersMessage{Additions: game.GetPlayerList()}
-	err = WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
+	err := WriteMessage(conn, dosProto.MessageType_PLAYERS, &playersMessage)
 	if err != nil {
 		return
 	}
@@ -228,14 +317,14 @@ func handlePlayer(conn *websocket.Conn) {
 		go player.Cards.Deletions.StartBroadcasting()
 		defer player.Cards.Additions.Destroy()
 
-		messages := commonMessages.NewListener()
-		defer commonMessages.RemoveListener(messages)
+		messages := state.CommonMessages.NewListener()
+		defer state.CommonMessages.RemoveListener(messages)
 
-		start := started.NewListener()
-		defer started.RemoveListener(start)
+		start := state.Started.NewListener()
+		defer state.Started.RemoveListener(start)
 
-		turnChanged := turnBroadcaster.NewListener()
-		defer turnBroadcaster.RemoveListener(turnChanged)
+		turnChanged := state.Turn.NewListener()
+		defer state.Turn.RemoveListener(turnChanged)
 
 		for {
 			var buf []byte
@@ -280,6 +369,8 @@ func handlePlayer(conn *websocket.Conn) {
 				hasDrawn = false
 				hasPlayed = false
 				continue
+
+				// TODO: GameDone Broadcaster
 			}
 
 			if err != nil {
@@ -347,44 +438,6 @@ func handlePlayer(conn *websocket.Conn) {
 			}
 		}
 	}
-
-}
-
-func HandleCommonMessages(game *dos.Game, turnBroadcaster *utils.Broadcaster, outputMessages *utils.Broadcaster) {
-	turnChannel := turnBroadcaster.NewListener()
-
-	for {
-		var err error
-		var bytes []byte
-
-		select {
-		case newPlayer := <-game.PlayerJoined:
-			msg := &dosProto.PlayersMessage{
-				Additions: []string{newPlayer},
-			}
-			bytes, err = ZipMessage(dosProto.MessageType_PLAYERS, msg)
-
-		case leavingPlayer := <-game.PlayerLeft:
-			msg := &dosProto.PlayersMessage{
-				Deletions: []string{leavingPlayer},
-			}
-			bytes, err = ZipMessage(dosProto.MessageType_PLAYERS, msg)
-
-		case nextPlayer := <-turnChannel:
-			lastCard := game.Discard.List[len(game.Discard.List)-1]
-			msg := &dosProto.TurnMessage{
-				LastPlayed: &lastCard,
-				Player:     nextPlayer.(string),
-			}
-			bytes, err = ZipMessage(dosProto.MessageType_TURN, msg)
-		}
-
-		if err != nil {
-			log.Println("[protobuf] Encoding error", err)
-		} else {
-			outputMessages.Broadcast(bytes)
-		}
-	}
 }
 
 func Read(conn *websocket.Conn, message proto.Message) error {
@@ -434,6 +487,10 @@ func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.M
 		err = fmt.Errorf("Received type %s instead of type %s", envelope.Type.String(), typ.String())
 		log.Println("[websocket]", err)
 		return err
+	}
+
+	if message == nil {
+		return nil
 	}
 
 	err = proto.Unmarshal(envelope.Contents, message)
