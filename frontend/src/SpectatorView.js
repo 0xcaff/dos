@@ -27,7 +27,9 @@ class SpectatorView extends Component {
           { !this.props.started &&
             <button
               onClick={this.props.startGame}
-              disabled={this.props.connectionStatus !== 1}>Start Game!</button>
+              disabled={
+                this.props.connectionStatus !== 1 || this.props.players.length < 2
+              }>Start Game!</button>
           }
         </div>
 

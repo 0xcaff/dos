@@ -7,6 +7,8 @@ import './PlayView.css';
 
 // TODO: PositionFixed looks wierd up stuff in ff mobile
 // TODO: Remove padding which hides cards at edges.
+// TODO: On iOS Double Tap Causes Zoom
+// TODO: iOS Doesn't Send Close Message
 
 class PlayView extends Component {
   state = {

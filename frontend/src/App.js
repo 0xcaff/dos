@@ -96,6 +96,7 @@ class App extends Component {
         this.setState({
           name: name,
           view: 'lobby',
+          error: '',
         });
       }
     }
@@ -116,7 +117,10 @@ class App extends Component {
       this.socket.removeEventListener('message', messageHandler);
 
       if (envelope.type === dos.MessageType.SUCCESS) {
-        this.setState({session: session});
+        this.setState({
+          session: session,
+          error: '',
+        });
       }
     }
 
@@ -236,6 +240,7 @@ class App extends Component {
           placeholder='Game PIN'
           onSubmit={this.setSession}
           error={this.state.error}
+          type='tel'
           disabled={disconnected} />
       } else {
         view = <InputView
@@ -243,6 +248,7 @@ class App extends Component {
           placeholder='Name'
           onSubmit={this.setName}
           error={this.state.error}
+          type='text'
           disabled={disconnected} />
       }
     } else if (this.state.view === 'lobby') {

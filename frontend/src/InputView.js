@@ -32,7 +32,7 @@ class InputView extends Component {
 
           <form onSubmit={this.handleSubmit}>
             <input
-              type='text'
+              type={this.props.type}
               placeholder={this.props.placeholder}
               onChange={this.handleInput}
               disabled={this.props.disabled}
