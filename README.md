@@ -14,7 +14,7 @@ Download the latest [release] and run it. There are no runtime dependencies.
 
     $ dos
 
-Navigate to `/spectator` on the shared screen. The shared screen will show
+Navigate to `/spectate` on the shared screen. The shared screen will show
 player information and the last played card. It's the top screen in the demo.
 Navigate to `/` on player devices. Once all players are ready, press `Start
 Game` on the shared screen. The server needs to be restarted between games.
@@ -27,13 +27,12 @@ Building from source requires [protoc][protoc], a javascript runtime, and the
 
     $ go get -d github.com/caffinatedmonkey/dos
     $ cd $GOPATH/src/github.com/caffinatedmonkey/dos
-    $ go generate
     $ cd frontend
     $ yarn
     $ yarn run protobuf
     $ yarn run build
     $ cd ..
-    $ rice embed-go
+    $ go generate
     $ go install
 
 [uno]: https://en.wikipedia.org/wiki/Uno_(card_game)
