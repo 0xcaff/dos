@@ -3,7 +3,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -19,6 +18,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Maximum failed attempts to join a session or select a name before the
+// connection is terminated.
+const MaxAttempts = 10
+
 var GameStore = make(map[int32]*GameState)
 var StoreMutex sync.Mutex
 
@@ -33,7 +36,6 @@ var (
 func main() {
 	flag.Parse()
 
-	// TODO: Doesn't seed for every random
 	rand.Seed(time.Now().Unix())
 
 	fs := SinglePageFileSystem{rice.MustFindBox("frontend/build").HTTPBox()}
@@ -49,7 +51,7 @@ func main() {
 
 	log.Printf("[server] initializing on %s\n", *listen)
 	err := s.ListenAndServe()
-	log.Fatal(err)
+	log.Println(err)
 }
 
 func handleSocket(rw http.ResponseWriter, r *http.Request) {
@@ -77,15 +79,58 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 }
 
 type GameState struct {
-	Game           *dos.Game
+	Game *dos.Game
+
+	// Encoded []byte sent to all clients (players and spectators) connected to
+	// the game.
 	CommonMessages utils.Broadcaster
-	Started        utils.Broadcaster
-	Turn           utils.Broadcaster
+
+	// Broadcasted by the spectator when the game is started.
+	Started   utils.Broadcaster
+	IsStarted bool
+
+	// Name (as a string) of the next player broadcasted by the spectator.
+	Turn utils.Broadcaster
 
 	// Notify players when they should disconnect.
-	PlayerDone    utils.Broadcaster
+	PlayerDone utils.Broadcaster
+
+	// A message is sent on this broadcaster when the spectator leaves the game.
+	// All players should disconnect when this occurs.
 	SpectatorDone utils.Broadcaster
-	IsStarted     bool
+}
+
+func NewGame() (*GameState, int32) {
+	// Get an unused session id
+	var session int32
+	for ok := true; ok; _, ok = GameStore[session] {
+		session = rand.Int31n(1000000)
+	}
+
+	state := &GameState{
+		Game:           dos.NewGame(true),
+		CommonMessages: *utils.NewBroadcaster(),
+		Started:        *utils.NewBroadcaster(),
+		IsStarted:      false,
+		Turn:           *utils.NewBroadcaster(),
+		PlayerDone:     *utils.NewBroadcaster(),
+		SpectatorDone:  *utils.NewBroadcaster(),
+	}
+
+	go state.Started.StartBroadcasting()
+	go state.Turn.StartBroadcasting()
+
+	go state.PlayerDone.StartBroadcasting()
+	go state.SpectatorDone.StartBroadcasting()
+
+	go state.CommonMessages.StartBroadcasting()
+	go state.HandleMessages()
+
+	StoreMutex.Lock()
+	GameStore[session] = state
+	StoreMutex.Unlock()
+
+	return state, session
 }
 
 // Encodes messages common to all clients and broadcasts them on CommonMessages.
@@ -134,9 +179,14 @@ func (state *GameState) Destroy(id int32) {
 }
 
 type CloseMessage struct {
-	// The player for which this close message is for.
+	// The player for which this close message is for. The message is handled
+	// by this player.
 	Name string
+
+	// Code passed to websocket.FormatCloseMessage
 	Code int
+
+	// Text passed to websocket.FormatCloseMessage.
 	Text string
 }
 
@@ -144,56 +194,8 @@ type CloseMessage struct {
 func handleSpectator(conn *websocket.Conn) {
 	log.Println("[websocket] spectator joined")
 
-	// Get an unused session id
-	var session int32
-	for ok := true; ok; _, ok = GameStore[session] {
-		session = rand.Int31n(1000000)
-	}
-
-	game := dos.NewGame(true)
-	state := &GameState{
-		Game:           game,
-		Started:        *utils.NewBroadcaster(),
-		Turn:           *utils.NewBroadcaster(),
-		CommonMessages: *utils.NewBroadcaster(),
-		PlayerDone:     *utils.NewBroadcaster(),
-		SpectatorDone:  *utils.NewBroadcaster(),
-		IsStarted:      false,
-	}
-
-	go state.Started.StartBroadcasting()
-	go state.Turn.StartBroadcasting()
-	go state.PlayerDone.StartBroadcasting()
-	go state.SpectatorDone.StartBroadcasting()
-	defer state.SpectatorDone.Broadcast(nil)
-
-	go state.CommonMessages.StartBroadcasting()
-	go state.HandleMessages()
-
-	StoreMutex.Lock()
-	GameStore[session] = state
-	StoreMutex.Unlock()
-
-	oldCloseHandler := conn.CloseHandler()
-	conn.SetCloseHandler(func(code int, text string) error {
-		err := oldCloseHandler(code, text)
-		log.Println("[game] spectator disconnected")
-		state.Destroy(session)
-		state.SpectatorDone.Broadcast(nil)
-		return err
-	})
-
-	defer func() {
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-			time.Now().Add(time.Second),
-		)
-		log.Println("[websocket] closed spectator socket")
-
-		state.Destroy(session)
-	}()
-
+	state, session := NewGame()
+	game := state.Game
 	go func() {
 		// Send Session ID For Display
 		sessionMessage := dosProto.SessionMessage{Session: session}
@@ -202,15 +204,49 @@ func handleSpectator(conn *websocket.Conn) {
 			return
 		}
 
+		// Forward Common Messages
 		messages := state.CommonMessages.NewListener()
 		defer state.CommonMessages.RemoveListener(messages)
+
+		spectatorClose := state.SpectatorDone.NewListener()
+		defer state.SpectatorDone.RemoveListener(spectatorClose)
 
 		for {
 			var buf []byte
 			var err error
 
-			message := <-messages
-			buf = message.([]byte)
+			select {
+			case message := <-messages:
+				buf = message.([]byte)
+
+			case rawDoneMessage := <-spectatorClose:
+				log.Println("[websocket] closing spectator socket")
+				doneMessage, ok := rawDoneMessage.(*CloseMessage)
+
+				var code int
+				var text string
+				if !ok {
+					// Nil Message
+					code = websocket.CloseNormalClosure
+					text = ""
+				} else {
+					code = doneMessage.Code
+					text = doneMessage.Text
+				}
+
+				// Teardown
+				err = conn.WriteControl(
+					websocket.CloseMessage,
+					websocket.FormatCloseMessage(code, text),
+					time.Now().Add(time.Second),
+				)
+				if err != nil {
+					log.Printf("[websocket] error while tearing down spectator: %v\n", err)
+				}
+
+				state.Destroy(session)
+				return
+			}
 
 			err = conn.WriteMessage(websocket.BinaryMessage, buf)
 			if err != nil {
@@ -219,6 +255,25 @@ func handleSpectator(conn *websocket.Conn) {
 			}
 		}
 	}()
+
+	defer state.SpectatorDone.Broadcast(nil)
+
+	conn.SetCloseHandler(func(code int, text string) error {
+		log.Println("[game] spectator disconnected")
+		state.SpectatorDone.Broadcast(&CloseMessage{
+			Text: text,
+			Code: code,
+		})
+
+		// Losing the error is ok. The connection continues to get torn down as
+		// it normally does except any error from the close doesn't get passed
+		// to the next call to Read() or NextReader(). A close error is still
+		// sent in its place.
+
+		// TODO: Change this. It relies on the semantics of the library
+		// remaining the same.
+		return nil
+	})
 
 	// Start is the only message spectators can send.
 	err := ReadMessage(conn, dosProto.MessageType_START, nil)
@@ -234,13 +289,10 @@ func handleSpectator(conn *websocket.Conn) {
 		log.Println("[websocket] read data from spectator", err)
 
 		// Client sent us some garbage. Time to take out the trash.
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
-			time.Now().Add(time.Second),
-		)
-
-		// TODO: Does a WriteControl close message trigger the teardown process?
+		state.SpectatorDone.Broadcast(&CloseMessage{
+			Text: "",
+			Code: websocket.CloseUnsupportedData,
+		})
 
 		return
 	}()
@@ -261,18 +313,18 @@ func handleSpectator(conn *websocket.Conn) {
 		state.Turn.Broadcast(player.Name)
 
 		select {
-		// TODO: Kill Early If There Aren't Enough Players
+		// TODO: On Player Leave, If there aren't enough players, shutdown the
+		// game.
 		case <-player.TurnDone:
 			log.Printf("[game] (%s) turn done\n", player.Name)
 			if len(player.Cards.List) == 0 {
 				log.Printf("[game] (%s) done with game\n", player.Name)
 
-				closeMessage := &CloseMessage{
+				state.PlayerDone.Broadcast(&CloseMessage{
 					Name: player.Name,
 					Code: websocket.CloseNormalClosure,
 					Text: "won!",
-				}
-				state.PlayerDone.Broadcast(closeMessage)
+				})
 			}
 		}
 	}
@@ -281,9 +333,9 @@ func handleSpectator(conn *websocket.Conn) {
 func handlePlayer(conn *websocket.Conn) {
 	log.Println("[websocket] new player joined")
 
-	// TODO: limit this and kill connection when it goes over.
 	var state *GameState
-	for {
+	var attempts int
+	for attempts = 0; state == nil && attempts < MaxAttempts; attempts++ {
 		sessionMessage := &dosProto.SessionMessage{}
 		err := ReadMessage(conn, dosProto.MessageType_SESSION, sessionMessage)
 		if err != nil {
@@ -292,55 +344,77 @@ func handlePlayer(conn *websocket.Conn) {
 
 		var ok bool
 		state, ok = GameStore[sessionMessage.Session]
+
+		var message proto.Message
+		var typ dosProto.MessageType
 		if !ok {
-			errorMessage := dosProto.ErrorMessage{
+			message = &dosProto.ErrorMessage{
 				Reason: "Invalid Game PIN. That game doesn't exist.",
 			}
-
-			err := WriteMessage(conn, dosProto.MessageType_ERROR, &errorMessage)
-			if err != nil {
-				return
-			}
+			typ = dosProto.MessageType_ERROR
 		} else {
-			err := WriteMessage(conn, dosProto.MessageType_SUCCESS, nil)
-			if err != nil {
-				return
-			}
-			break
+			message = nil
+			typ = dosProto.MessageType_SUCCESS
+		}
+
+		err = WriteMessage(conn, typ, message)
+		if err != nil {
+			return
 		}
 	}
+
+	if attempts == MaxAttempts {
+		// Ratelimited
+		// We haven't setup any writing goroutines. We don't have anything to
+		// teardown besides the connection so writing directly is ok here.
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "slow down"),
+			time.Now().Add(time.Second),
+		)
+	}
+
 	game := state.Game
 
 	// Wait for player to be ready
 	var player *dos.Player
 
-	// TODO: limit this
-	for {
+	for attempts = 0; player == nil && attempts < MaxAttempts; attempts++ {
 		ready := dosProto.ReadyMessage{}
 		err := ReadMessage(conn, dosProto.MessageType_READY, &ready)
 		if err != nil {
 			return
 		}
 
+		var message proto.Message
+		var typ dosProto.MessageType
+
 		// TODO: possibly block empty player names ""
 		player, err = game.NewPlayer(ready.Name)
 		if err != nil {
 			log.Printf("[game] (%s) failed to join: %v\n", ready.Name, err)
-			errorMessage := dosProto.ErrorMessage{Reason: err.Error()}
 
-			err := WriteMessage(conn, dosProto.MessageType_ERROR, &errorMessage)
-			if err != nil {
-				return
-			}
-
+			typ = dosProto.MessageType_ERROR
+			message = &dosProto.ErrorMessage{Reason: err.Error()}
 		} else {
 			log.Printf("[game] (%s) joined\n", ready.Name)
-			err := WriteMessage(conn, dosProto.MessageType_SUCCESS, nil)
-			if err != nil {
-				return
-			}
-			break
+
+			typ = dosProto.MessageType_SUCCESS
+			message = nil
 		}
+
+		err = WriteMessage(conn, typ, message)
+		if err != nil {
+			return
+		}
+	}
+
+	if attempts == MaxAttempts {
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "slow down"),
+			time.Now().Add(time.Second),
+		)
 	}
 
 	isStarted := false
@@ -349,7 +423,7 @@ func handlePlayer(conn *websocket.Conn) {
 	hasDrawn := false
 	hasPlayed := false
 
-	// This goroutine controls write access to the socket.
+	// This goroutine controls write access to the player's socket.
 	go func() {
 		// Send player list
 		playersMessage := dosProto.PlayersMessage{Additions: game.GetPlayerList()}
@@ -433,11 +507,15 @@ func handlePlayer(conn *websocket.Conn) {
 				}
 
 				// Teardown
-				conn.WriteControl(
+				err = conn.WriteControl(
 					websocket.CloseMessage,
 					websocket.FormatCloseMessage(doneMessage.Code, doneMessage.Text),
 					time.Now().Add(time.Second),
 				)
+
+				if err != nil {
+					log.Println("[websocket] error while tearing down player socket:", err)
+				}
 
 				game.RemovePlayer(player)
 
@@ -448,11 +526,15 @@ func handlePlayer(conn *websocket.Conn) {
 
 			case <-spectatorDone:
 				// Teardown Connection. Everything Else Will Be GC'd
-				conn.WriteControl(
+				err = conn.WriteControl(
 					websocket.CloseMessage,
 					websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
 					time.Now().Add(time.Second),
 				)
+
+				if err != nil {
+					log.Println("[websocket] error occured while spectator closing player connection:", err)
+				}
 
 				return
 			}
@@ -479,7 +561,6 @@ func handlePlayer(conn *websocket.Conn) {
 			Text: text,
 		})
 
-		// TODO: Is this going to be an issue?
 		return nil
 	})
 
@@ -533,120 +614,13 @@ func handlePlayer(conn *websocket.Conn) {
 				log.Printf("[game] (%s) done with turn\n", player.Name)
 				player.TurnDone <- struct{}{}
 			}
+
+		default:
+			state.PlayerDone.Broadcast(&CloseMessage{
+				Text: "you're using that wrong",
+				Code: websocket.CloseUnsupportedData,
+			})
+			return
 		}
 	}
-}
-
-func Read(conn *websocket.Conn, message proto.Message) error {
-	format, buf, err := conn.ReadMessage()
-	if err != nil {
-		return err
-	}
-
-	if format != websocket.BinaryMessage {
-		log.Println("[websocket] got non binary message from", conn.RemoteAddr())
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
-			time.Now().Add(time.Second),
-		)
-
-		return fmt.Errorf("dos: got non binary message")
-	}
-
-	if message == nil {
-		return nil
-	}
-
-	err = proto.Unmarshal(buf, message)
-	if err != nil {
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
-			time.Now().Add(time.Second),
-		)
-
-		return fmt.Errorf("[protobuf] failed to parse message: %#v", err)
-	}
-
-	return nil
-}
-
-func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.Message) error {
-	envelope := dosProto.Envelope{}
-	err := Read(conn, &envelope)
-	if err != nil {
-		return err
-	}
-
-	if envelope.Type != typ {
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
-			time.Now().Add(time.Second),
-		)
-		err = fmt.Errorf("Received type %s instead of type %s", envelope.Type.String(), typ.String())
-		log.Println("[websocket]", err)
-		return err
-	}
-
-	if message == nil {
-		return nil
-	}
-
-	err = proto.Unmarshal(envelope.Contents, message)
-	if err != nil {
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
-			time.Now().Add(time.Second),
-		)
-
-		err = fmt.Errorf("[protobuf] failed to parse envelope: %#v", err)
-		log.Println("[websocket]", err)
-		return err
-	}
-
-	return nil
-}
-
-func WriteMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.Message) error {
-	buf, err := ZipMessage(typ, message)
-	if err != nil {
-		conn.WriteControl(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, ""),
-			time.Now().Add(time.Second),
-		)
-
-		log.Println("[protobuf] failed to compose message:", err)
-		return err
-	}
-
-	err = conn.WriteMessage(websocket.BinaryMessage, buf)
-	if err != nil {
-		log.Println("[websocket] failed to write message:", err)
-		return err
-	}
-
-	return nil
-}
-
-func ZipMessage(typ dosProto.MessageType, message proto.Message) ([]byte, error) {
-	var buf []byte
-	var err error
-
-	if message != nil {
-		buf, err = proto.Marshal(message)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	envelope := dosProto.Envelope{}
-	envelope.Type = typ
-	envelope.Contents = buf
-
-	return proto.Marshal(&envelope)
 }
