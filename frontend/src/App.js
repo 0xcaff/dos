@@ -6,14 +6,8 @@ import Players from './Players';
 import SocketStatus from './SocketStatus';
 import { dos } from './proto';
 
-var host = null;
-if (process.env.NODE_ENV === 'production') {
-  const isSecure = window.location.protocol === 'https:';
-  host = `${isSecure ? 'wss' : 'ws'}://${window.location.host}`;
-} else {
-  host = 'ws://drone.lan:8080';
-}
-const WEBSOCKET_PATH = host + '/socket';
+const isSecure = window.location.protocol === 'https:';
+const WEBSOCKET_PATH = `${isSecure ? 'wss' : 'ws'}://${window.location.host}/socket`;
 
 class App extends Component {
   state = {
@@ -69,6 +63,7 @@ class App extends Component {
   }
 
   handleClose(event) {
+    console.log(event);
     if (event.code === 1000 && event.reason === "won!") {
       this.navigateTo('done');
     }
