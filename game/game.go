@@ -157,7 +157,6 @@ func (game *Game) NextPlayer() *Player {
 			increment += 1
 			player, _ := game.GetPlayer(1)
 			game.DrawCards(&player.Cards, 4)
-
 		}
 
 		game.lastCardPlayed = true
@@ -220,8 +219,9 @@ func (game *Game) DrawCards(hand *Cards, count int) {
 	}
 
 	if count > len(game.Deck.List) {
-		// TODO: Handle
-		panic("Too many players. Not enough cards.")
+		// Silently fail. There aren't any cards left in the deck. Someone needs
+		// to play something.
+		return
 	}
 
 	cards := game.Deck.PopN(count)
