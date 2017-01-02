@@ -51,6 +51,8 @@ func NewGame(withChannels bool) *Game {
 	return &g
 }
 
+// TODO: Limit player amount.
+
 // Creates a new player, populates its deck and adds it to the game, notifying
 // PlayerJoined.
 func (game *Game) NewPlayer(name string) (*Player, error) {
@@ -221,6 +223,12 @@ func (game *Game) DrawCards(hand *Cards, count int) {
 	if count > len(game.Deck.List) {
 		// Silently fail. There aren't any cards left in the deck. Someone needs
 		// to play something.
+
+		// TODO: What if many players join and the last few don't get any cards?
+		// They will automatically win.
+
+		// TODO: What if players refuse to play when there aren't any cards left
+		// to draw? You might want to know that on the client.
 		return
 	}
 

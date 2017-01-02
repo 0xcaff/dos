@@ -25,6 +25,12 @@ enum MessageType {
 }
 
 message ErrorMessage {
-	string reason = 1;
+	ErrorReason reason = 1;
+}
+
+enum ErrorReason {
+	INVALIDGAME = 0;
+	INVALIDNAME = 1;
+	STARTED = 2;
 }
 
