@@ -23,6 +23,7 @@ func Read(conn *websocket.Conn, message proto.Message) error {
 			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
 			time.Now().Add(time.Second),
 		)
+		conn.Close()
 
 		return fmt.Errorf("dos: got non binary message")
 	}
@@ -38,6 +39,7 @@ func Read(conn *websocket.Conn, message proto.Message) error {
 			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
 			time.Now().Add(time.Second),
 		)
+		conn.Close()
 
 		return fmt.Errorf("[protobuf] failed to parse message: %#v", err)
 	}
@@ -58,6 +60,8 @@ func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.M
 			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
 			time.Now().Add(time.Second),
 		)
+		conn.Close()
+
 		err = fmt.Errorf("Received type %s instead of type %s", envelope.Type.String(), typ.String())
 		log.Println("[websocket]", err)
 		return err
@@ -74,6 +78,7 @@ func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.M
 			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
 			time.Now().Add(time.Second),
 		)
+		conn.Close()
 
 		err = fmt.Errorf("[protobuf] failed to parse envelope: %#v", err)
 		log.Println("[websocket]", err)
@@ -91,6 +96,7 @@ func WriteMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.
 			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, ""),
 			time.Now().Add(time.Second),
 		)
+		conn.Close()
 
 		log.Println("[protobuf] failed to compose message:", err)
 		return err

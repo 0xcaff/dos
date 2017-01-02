@@ -1,2 +1,6 @@
 *.pb.go
+/frontend/src/proto.js
+/main
+/dos
+/rice-box.go
 

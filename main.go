@@ -172,6 +172,7 @@ func (state *GameState) HandleMessages() {
 }
 
 // Removes the state from the global store.
+// TODO: All broadcasters started in NewGame need to be destroyed.
 func (state *GameState) Destroy(id int32) {
 	StoreMutex.Lock()
 	delete(GameStore, id)
@@ -240,10 +241,12 @@ func handleSpectator(conn *websocket.Conn) {
 					websocket.FormatCloseMessage(code, text),
 					time.Now().Add(time.Second),
 				)
+
 				if err != nil {
 					log.Printf("[websocket] error while tearing down spectator: %v\n", err)
 				}
 
+				conn.Close()
 				state.Destroy(session)
 				return
 			}
@@ -320,6 +323,11 @@ func handleSpectator(conn *websocket.Conn) {
 			if len(player.Cards.List) == 0 {
 				log.Printf("[game] (%s) done with game\n", player.Name)
 
+				// TODO: Race-y code. This triggers the player teardown, but on
+				// a different goroutine. This call will return immediately and
+				// continue to the next player, possibly before it has been
+				// removed. The player could get another turn even though they
+				// have left.
 				state.PlayerDone.Broadcast(&CloseMessage{
 					Name: player.Name,
 					Code: websocket.CloseNormalClosure,
@@ -333,6 +341,7 @@ func handleSpectator(conn *websocket.Conn) {
 func handlePlayer(conn *websocket.Conn) {
 	log.Println("[websocket] new player joined")
 
+	// TODO: Handle Joining While Game Has Started
 	var state *GameState
 	var attempts int
 	for attempts = 0; state == nil && attempts < MaxAttempts; attempts++ {
@@ -348,9 +357,7 @@ func handlePlayer(conn *websocket.Conn) {
 		var message proto.Message
 		var typ dosProto.MessageType
 		if !ok {
-			message = &dosProto.ErrorMessage{
-				Reason: "Invalid Game PIN. That game doesn't exist.",
-			}
+			message = &dosProto.ErrorMessage{Reason: dosProto.ErrorReason_INVALIDGAME}
 			typ = dosProto.MessageType_ERROR
 		} else {
 			message = nil
@@ -372,6 +379,9 @@ func handlePlayer(conn *websocket.Conn) {
 			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "slow down"),
 			time.Now().Add(time.Second),
 		)
+
+		conn.Close()
+		return
 	}
 
 	game := state.Game
@@ -392,10 +402,11 @@ func handlePlayer(conn *websocket.Conn) {
 		// TODO: possibly block empty player names ""
 		player, err = game.NewPlayer(ready.Name)
 		if err != nil {
+			// Only error we can get is invalid name.
 			log.Printf("[game] (%s) failed to join: %v\n", ready.Name, err)
 
 			typ = dosProto.MessageType_ERROR
-			message = &dosProto.ErrorMessage{Reason: err.Error()}
+			message = &dosProto.ErrorMessage{Reason: dosProto.ErrorReason_INVALIDNAME}
 		} else {
 			log.Printf("[game] (%s) joined\n", ready.Name)
 
@@ -415,6 +426,9 @@ func handlePlayer(conn *websocket.Conn) {
 			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "slow down"),
 			time.Now().Add(time.Second),
 		)
+
+		conn.Close()
+		return
 	}
 
 	isStarted := false
@@ -517,6 +531,7 @@ func handlePlayer(conn *websocket.Conn) {
 					log.Println("[websocket] error while tearing down player socket:", err)
 				}
 
+				conn.Close()
 				game.RemovePlayer(player)
 
 				// Notify Spectator If Turn Active, Otherwise Ignored
@@ -525,6 +540,7 @@ func handlePlayer(conn *websocket.Conn) {
 				return
 
 			case <-spectatorDone:
+				// TODO : Duplidate teardown?
 				// Teardown Connection. Everything Else Will Be GC'd
 				err = conn.WriteControl(
 					websocket.CloseMessage,
@@ -535,6 +551,7 @@ func handlePlayer(conn *websocket.Conn) {
 				if err != nil {
 					log.Println("[websocket] error occured while spectator closing player connection:", err)
 				}
+				conn.Close()
 
 				return
 			}
@@ -591,12 +608,12 @@ func handlePlayer(conn *websocket.Conn) {
 				playMessage := dosProto.PlayMessage{}
 				err := proto.Unmarshal(envelope.Contents, &playMessage)
 				if err != nil {
-					log.Println("[protobuf] failed to parse message:", err)
-					conn.WriteControl(
-						websocket.CloseMessage,
-						websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
-						time.Now().Add(time.Second),
-					)
+					state.PlayerDone.Broadcast(&CloseMessage{
+						Name: player.Name,
+						Code: websocket.CloseUnsupportedData,
+						Text: "couldn't parse message",
+					})
+
 					return
 				}
 

@@ -218,7 +218,7 @@ class App extends Component {
     } else if (envelope.type === dos.MessageType.ERROR) {
       const errorMessage = dos.ErrorMessage.decode(envelope.contents);
 
-      this.setState({error: errorMessage.reason});
+      this.setState({error: convertError(errorMessage.reason)});
     }
   }
 
@@ -305,6 +305,16 @@ function encodeAndSend(socket, type, message) {
   }).finish();
 
   socket.send(envelope);
+}
+
+function convertError(error) {
+  if (error === dos.ErrorReason.INVALIDGAME) {
+    return "That game doesn't exist";
+  } else if (error === dos.ErroReason.INVALIDNAME) {
+    return "That name is already taken";
+  } else {
+    return '';
+  }
 }
 
 export default App;
