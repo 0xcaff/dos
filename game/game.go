@@ -67,7 +67,7 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 		Name:     name,
 		TurnDone: make(chan struct{}, 1),
 	}
-	game.DrawCards(&player.Cards, 8)
+	game.DrawCards(&player.Cards, 7)
 
 	game.playerMutex.Lock()
 	game.players = append(game.players, player)
