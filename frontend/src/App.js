@@ -310,7 +310,7 @@ function encodeAndSend(socket, type, message) {
 function convertError(error) {
   if (error === dos.ErrorReason.INVALIDGAME) {
     return "That game doesn't exist";
-  } else if (error === dos.ErroReason.INVALIDNAME) {
+  } else if (error === dos.ErrorReason.INVALIDNAME) {
     return "That name is already taken";
   } else {
     return '';
