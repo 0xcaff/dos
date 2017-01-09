@@ -11,7 +11,6 @@ const WEBSOCKET_PATH = `${isSecure ? 'wss' : 'ws'}://${window.location.host}/soc
 
 class App extends Component {
   state = {
-    view: (window.location.pathname.slice(1) || 'join'),
     players: [], // {name: string, active: boolean}
     cards: [],
     discard: null,
@@ -24,6 +23,16 @@ class App extends Component {
 
   constructor(props) {
     super(props);
+
+    // Primitive Routing
+    let path = window.location.pathname.slice(1);
+    if (!['join', 'spectate'].includes(path)) {
+      path = 'join';
+      history.replaceState(null, null, "/join");
+    }
+
+    // eslint-disable-next-line react/no-direct-mutation-state
+    this.state.view = path;
 
     this.setName = this.setName.bind(this);
     this.setSession = this.setSession.bind(this);
@@ -236,7 +245,11 @@ class App extends Component {
           onSubmit={this.setSession}
           error={this.state.error}
           type='tel'
-          disabled={disconnected} />
+          disabled={disconnected}>
+            <p style={{fontSize: 'x-small'}}>
+              Get a Game PIN by visiting <b>{ `${window.location.host}/spectate` }</b> on a shared screen.
+            </p>
+          </InputView>
       } else {
         view = <InputView
           key='name'

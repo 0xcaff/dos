@@ -47,6 +47,8 @@ class InputView extends Component {
           { this.props.error && <div className='error'>
             { this.props.error }
           </div> }
+
+          { this.props.children }
         </div>
       </div>
     );

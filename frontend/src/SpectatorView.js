@@ -17,6 +17,10 @@ class SpectatorView extends Component {
           <div className='session'>
             <h1>Game PIN</h1>
             <h1>{this.props.session}</h1>
+
+            <p>
+              Join the game by visiting <b>{ `${window.location.host}/join` }</b>.
+            </p>
           </div>
         }
 
