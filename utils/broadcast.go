@@ -12,7 +12,8 @@ type Broadcaster struct {
 	listeners []chan interface{}
 
 	sync.RWMutex
-	isLive bool
+	isLive   bool
+	IsClosed bool
 }
 
 func NewBroadcaster() *Broadcaster {
@@ -87,10 +88,12 @@ func (broadcast *Broadcaster) StartBroadcasting() {
 		}
 		broadcast.RWMutex.RUnlock()
 	}
+
+	broadcast.IsClosed = true
 }
 
 // Destroys broadcaster. After a broadcaster is destroyed, all calls to
-// StartBroadcast() return and calls to Broadcast() panic.
+// StartBroadcast() return and calls to StartBroadcast() panic.
 func (broadcast *Broadcaster) Destroy() {
 	broadcast.RWMutex.Lock()
 	close(broadcast.receiver)

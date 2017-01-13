@@ -31,6 +31,6 @@ message ErrorMessage {
 enum ErrorReason {
 	INVALIDGAME = 0;
 	INVALIDNAME = 1;
-	STARTED = 2;
+	GAMESTARTED = 2;
 }
 

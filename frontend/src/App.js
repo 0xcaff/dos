@@ -325,6 +325,8 @@ function convertError(error) {
     return "That game doesn't exist";
   } else if (error === dos.ErrorReason.INVALIDNAME) {
     return "That name is already taken";
+  } else if (error === dos.ErrorReaspon.GAMESTARTED) {
+    return "That game is already started.";
   } else {
     return '';
   }

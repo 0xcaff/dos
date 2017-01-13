@@ -23,7 +23,7 @@ import (
 const MaxAttempts = 10
 
 var GameStore = make(map[int32]*GameState)
-var StoreMutex sync.Mutex
+var StoreMutex sync.RWMutex
 
 var (
 	listen   = flag.String("listen", ":8080", "Address to serve on")
@@ -352,12 +352,17 @@ func handlePlayer(conn *websocket.Conn) {
 		}
 
 		var ok bool
+		StoreMutex.RLock()
 		state, ok = GameStore[sessionMessage.Session]
+		StoreMutex.RUnlock()
 
 		var message proto.Message
 		var typ dosProto.MessageType
 		if !ok {
 			message = &dosProto.ErrorMessage{Reason: dosProto.ErrorReason_INVALIDGAME}
+			typ = dosProto.MessageType_ERROR
+		} else if state.IsStarted {
+			message = &dosProto.ErrorMessage{Reaspon: dosProto.ErrorReason_GAMESTARTED}
 			typ = dosProto.MessageType_ERROR
 		} else {
 			message = nil

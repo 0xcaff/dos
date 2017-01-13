@@ -235,3 +235,7 @@ func (game *Game) DrawCards(hand *Cards, count int) {
 	cards := game.Deck.PopN(count)
 	hand.Push(cards...)
 }
+
+func (game *Game) GetPlayers() []*Player {
+	return game.players
+}
