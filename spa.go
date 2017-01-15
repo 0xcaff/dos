@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -16,11 +16,11 @@ func (spa SinglePageFileSystem) Open(name string) (http.File, error) {
 	file, err := spa.backendSystem.Open(name)
 	if err != nil {
 		// Failed to handle opening name, send index.
-		log.Printf("[file server] (%s) -> index.html\n", name)
+		log.Infof("[file server] (%s) -> index.html", name)
 		return spa.backendSystem.Open("index.html")
 	} else {
 		// Success opening file
-		log.Printf("[file server] (%s)\n", name)
+		log.Infof("[file server] (%s)", name)
 		return file, nil
 	}
 }

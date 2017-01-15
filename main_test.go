@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,7 +25,7 @@ func TestWastedBroadcasters(t *testing.T) {
 	// Connect To Server
 	spectatorConn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 		t.Fail()
 	}
 
@@ -34,7 +33,7 @@ func TestWastedBroadcasters(t *testing.T) {
 	handshake := dosProto.HandshakeMessage{Type: dosProto.ClientType_SPECTATOR}
 	err = Write(spectatorConn, &handshake)
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 		t.Fail()
 	}
 
@@ -42,7 +41,7 @@ func TestWastedBroadcasters(t *testing.T) {
 	sessionMessage := &dosProto.SessionMessage{}
 	err = ReadMessage(spectatorConn, dosProto.MessageType_SESSION, sessionMessage)
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 		t.Fail()
 	}
 	go IgnoreIncoming(spectatorConn)
@@ -50,40 +49,37 @@ func TestWastedBroadcasters(t *testing.T) {
 	// Make Sure Game Exists
 	gameState, ok := GameStore[sessionMessage.Session]
 	if !ok {
-		fmt.Println("The game we got back doesn't exist")
+		t.Log("The game we got back doesn't exist")
 		t.Fail()
 	}
 
 	// Make Sure That's The Only Game
 	if len(GameStore) > 1 {
-		fmt.Println("More than one game in the game store.")
+		t.Log("More than one game in the game store.")
 		t.Fail()
 	}
 
 	commonMessages := gameState.CommonMessages.NewListener()
 	player1Conn, err := AddPlayer(url, "Player 1", sessionMessage.Session)
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 		t.Fail()
 	}
 	go IgnoreIncoming(player1Conn)
 	<-commonMessages
-	fmt.Println("Player 1 Joined")
 
 	player2Conn, err := AddPlayer(url, "Player 2", sessionMessage.Session)
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 		t.Fail()
 	}
 	go IgnoreIncoming(player2Conn)
 	<-commonMessages
-	fmt.Println("Player 2 Joined")
 
 	// Start Game
-	fmt.Println("Starting Game")
 	err = WriteMessage(spectatorConn, dosProto.MessageType_START, nil)
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 		t.Fail()
 	}
 
@@ -97,7 +93,7 @@ func TestWastedBroadcasters(t *testing.T) {
 		time.Now().Add(time.Second),
 	)
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 		t.Fail()
 	}
 
@@ -107,10 +103,9 @@ func TestWastedBroadcasters(t *testing.T) {
 
 		err = spectatorConn.Close()
 		if err != nil {
-			fmt.Println(err)
+			t.Log(err)
 			t.Fail()
 		}
-		fmt.Println("Closed Spectator Connection")
 
 		return nil
 	})
@@ -125,7 +120,6 @@ func TestWastedBroadcasters(t *testing.T) {
 			break
 		}
 	}
-	fmt.Println("Game Destroyed")
 
 	// TODO: With even this much time, the shutdown never completes.
 	time.Sleep(time.Second * 20)
@@ -155,6 +149,7 @@ func TestWastedBroadcasters(t *testing.T) {
 	for i, broadcaster := range toCheckIfClosed {
 		if !broadcaster.IsClosed {
 			t.Log("Wasted Broadcaster", i)
+			t.Log("With Listeners", broadcaster.CountListeners())
 			t.Fail()
 		}
 	}

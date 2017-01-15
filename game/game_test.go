@@ -173,4 +173,17 @@ func TestNextPlayerEmpty(t *testing.T) {
 	}
 }
 
+func TestRemoveOtherPlayer(t *testing.T) {
+	game, _, _, _, _ := SetupGoldilocksGame()
+
+	anotherRandomPlayer := &Player{Name: "Bruce"}
+	game.RemovePlayer(anotherRandomPlayer)
+
+	players := len(game.players)
+	if players != 4 {
+		t.Log("Invalid number of players. Expected 4. Got: ", players)
+		t.Fail()
+	}
+}
+
 // TODO: Test Special Card Actions

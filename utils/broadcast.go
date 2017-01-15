@@ -71,6 +71,10 @@ func (broadcast *Broadcaster) Broadcast(thing interface{}) {
 	broadcast.receiver <- thing
 }
 
+func (broadcast *Broadcaster) CountListeners() int {
+	return len(broadcast.listeners)
+}
+
 // Sends broadcasted events to all receivers. Every call after the first returns
 // immediately. Only exit once the receiver channel is closed or Destroy() is
 // called.

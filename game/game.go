@@ -63,9 +63,12 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	}
 
 	player := &Player{
-		Cards:    *NewCardCollection(),
-		Name:     name,
-		TurnDone: make(chan struct{}, 1),
+		Cards: *NewCardCollection(),
+		Name:  name,
+
+		// This needs a buffer of two because there can be a maximum of three
+		// requests at a time. (closing from read defer or win or PlayerDone).
+		TurnDone: make(chan struct{}, 3),
 	}
 	game.DrawCards(&player.Cards, 7)
 
@@ -81,16 +84,19 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	return player, nil
 }
 
-// If player in game, removes them from the game and send a message to the
-// PlayerLeft channel.
+// Removes player from from the game and send a message to the PlayerLeft
+// channel. Nop if called multiple times.
 func (game *Game) RemovePlayer(removing *Player) {
 	game.playerMutex.Lock()
 
 	// Remove Player
+	var removed *Player
 	i := 0
 	newPlayers := make([]*Player, len(game.players))
 	for _, player := range game.players {
-		if player != removing {
+		if player == removing {
+			removed = player
+		} else {
 			newPlayers[i] = player
 			i++
 		}
@@ -102,12 +108,14 @@ func (game *Game) RemovePlayer(removing *Player) {
 	game.players = newPlayers
 	game.playerMutex.Unlock()
 
-	// Return to discard pile
-	game.Discard.PushFront(removing.Cards.List...)
+	if removed != nil {
+		// Return to discard pile
+		game.Discard.PushFront(removed.Cards.List...)
 
-	// Notify Players
-	if game.PlayerLeft != nil {
-		game.PlayerLeft <- removing.Name
+		// Notify Players
+		if game.PlayerLeft != nil {
+			game.PlayerLeft <- removed.Name
+		}
 	}
 }
 

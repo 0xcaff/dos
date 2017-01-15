@@ -3,7 +3,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/GeertJohan/go.rice"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 // Maximum failed attempts to join a session or select a name before the
@@ -49,17 +49,16 @@ func main() {
 		Handler: mux,
 	}
 
-	log.Printf("[server] initializing on %s\n", *listen)
+	log.Infof("initializing server at %s", *listen)
+
 	err := s.ListenAndServe()
 	log.Println(err)
 }
 
 func handleSocket(rw http.ResponseWriter, r *http.Request) {
-	log.Println("[websocket] new connection")
-
 	conn, err := upgrader.Upgrade(rw, r, nil)
 	if err != nil {
-		log.Println("[websocket] connection initialization failed", err)
+		log.Warning("connection initialization failed", err)
 		return
 	}
 
@@ -75,6 +74,16 @@ func handleSocket(rw http.ResponseWriter, r *http.Request) {
 
 	case dosProto.ClientType_SPECTATOR:
 		handleSpectator(conn)
+
+	default:
+		// Close the connection. This is an invalid type.
+		log.Warning("invalid connection type")
+
+		err = conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, "invalid client type"),
+			time.Now().Add(time.Second),
+		)
 	}
 }
 
@@ -164,7 +173,7 @@ func (state *GameState) HandleMessages() {
 		}
 
 		if err != nil {
-			log.Println("[protobuf] Encoding error", err)
+			log.Error("protobuf encoding error", err)
 		} else {
 			state.CommonMessages.Broadcast(bytes)
 		}
@@ -191,11 +200,22 @@ type CloseMessage struct {
 	Text string
 }
 
-// TODO: Better logging with logrus
+func (closeMessage *CloseMessage) AsCloseError() *websocket.CloseError {
+	return &websocket.CloseError{
+		Code: closeMessage.Code,
+		Text: closeMessage.Text,
+	}
+}
+
 func handleSpectator(conn *websocket.Conn) {
-	log.Println("[websocket] spectator joined")
+	log.Debug("spectator connection")
 
 	state, session := NewGame()
+	logCtx := log.Fields{
+		"session": session,
+	}
+	log.WithFields(logCtx).Info("new game")
+
 	game := state.Game
 	go func() {
 		// Send Session ID For Display
@@ -221,7 +241,7 @@ func handleSpectator(conn *websocket.Conn) {
 				buf = message.([]byte)
 
 			case rawDoneMessage := <-spectatorClose:
-				log.Println("[websocket] closing spectator socket")
+				log.WithFields(logCtx).Info("closing spectator socket")
 				doneMessage, ok := rawDoneMessage.(*CloseMessage)
 
 				var code int
@@ -243,7 +263,7 @@ func handleSpectator(conn *websocket.Conn) {
 				)
 
 				if err != nil {
-					log.Printf("[websocket] error while tearing down spectator: %v\n", err)
+					log.WithFields(logCtx).Error("error while tearing down spectator socket: ", err)
 				}
 
 				conn.Close()
@@ -253,7 +273,7 @@ func handleSpectator(conn *websocket.Conn) {
 
 			err = conn.WriteMessage(websocket.BinaryMessage, buf)
 			if err != nil {
-				log.Println("[websocket] failed to write", err)
+				log.WithFields(logCtx).Error("failed to write to spectator socket", err)
 				return
 			}
 		}
@@ -262,7 +282,7 @@ func handleSpectator(conn *websocket.Conn) {
 	defer state.SpectatorDone.Broadcast(nil)
 
 	conn.SetCloseHandler(func(code int, text string) error {
-		log.Println("[game] spectator disconnected")
+		log.WithFields(logCtx).Info("spectator disconnecting")
 		state.SpectatorDone.Broadcast(&CloseMessage{
 			Text: text,
 			Code: code,
@@ -288,10 +308,14 @@ func handleSpectator(conn *websocket.Conn) {
 		// Even though spectators aren't allowed to send anything, keep an
 		// active read so the close handler works.
 		err = Read(conn, nil)
+		if err != nil {
+			// A close message or protocol error. Either way the connection is
+			// done.
+			return
+		}
 
-		log.Println("[websocket] read data from spectator", err)
-
-		// Client sent us some garbage. Time to take out the trash.
+		// The client read was successful. It should only be closed from this
+		// point forward.
 		state.SpectatorDone.Broadcast(&CloseMessage{
 			Text: "",
 			Code: websocket.CloseUnsupportedData,
@@ -300,7 +324,7 @@ func handleSpectator(conn *websocket.Conn) {
 		return
 	}()
 
-	log.Println("[game] starting")
+	log.WithFields(logCtx).Info("starting")
 
 	state.IsStarted = true
 	state.Started.Broadcast(nil)
@@ -312,37 +336,19 @@ func handleSpectator(conn *websocket.Conn) {
 			return
 		}
 
-		log.Printf("[game] (%s) turn\n", player.Name)
 		state.Turn.Broadcast(player.Name)
 
-		select {
-		// TODO: On Player Leave, If there aren't enough players, shutdown the
-		// game.
-		case <-player.TurnDone:
-			log.Printf("[game] (%s) turn done\n", player.Name)
-			if len(player.Cards.List) == 0 {
-				log.Printf("[game] (%s) done with game\n", player.Name)
-
-				// TODO: Race-y code. This triggers the player teardown, but on
-				// a different goroutine. This call will return immediately and
-				// continue to the next player, possibly before it has been
-				// removed. The player could get another turn even though they
-				// have left.
-				state.PlayerDone.Broadcast(&CloseMessage{
-					Name: player.Name,
-					Code: websocket.CloseNormalClosure,
-					Text: "won!",
-				})
-			}
-		}
+		// Wait until player is done with their turn.
+		<-player.TurnDone
 	}
 }
 
 func handlePlayer(conn *websocket.Conn) {
-	log.Println("[websocket] new player joined")
+	log.Debug("player connection")
+	logCtx := log.Fields{}
 
-	// TODO: Handle Joining While Game Has Started
 	var state *GameState
+
 	var attempts int
 	for attempts = 0; state == nil && attempts < MaxAttempts; attempts++ {
 		sessionMessage := &dosProto.SessionMessage{}
@@ -362,11 +368,13 @@ func handlePlayer(conn *websocket.Conn) {
 			message = &dosProto.ErrorMessage{Reason: dosProto.ErrorReason_INVALIDGAME}
 			typ = dosProto.MessageType_ERROR
 		} else if state.IsStarted {
-			message = &dosProto.ErrorMessage{Reaspon: dosProto.ErrorReason_GAMESTARTED}
+			message = &dosProto.ErrorMessage{Reason: dosProto.ErrorReason_GAMESTARTED}
 			typ = dosProto.MessageType_ERROR
 		} else {
 			message = nil
 			typ = dosProto.MessageType_SUCCESS
+
+			logCtx["session"] = sessionMessage.Session
 		}
 
 		err = WriteMessage(conn, typ, message)
@@ -376,7 +384,9 @@ func handlePlayer(conn *websocket.Conn) {
 	}
 
 	if attempts == MaxAttempts {
-		// Ratelimited
+		logCtx["remoteAddr"] = conn.RemoteAddr()
+		log.WithFields(logCtx).Warning("rate limited while sending game PIN")
+
 		// We haven't setup any writing goroutines. We don't have anything to
 		// teardown besides the connection so writing directly is ok here.
 		conn.WriteControl(
@@ -401,19 +411,20 @@ func handlePlayer(conn *websocket.Conn) {
 			return
 		}
 
+		logCtx["name"] = ready.Name
+
 		var message proto.Message
 		var typ dosProto.MessageType
 
-		// TODO: possibly block empty player names ""
 		player, err = game.NewPlayer(ready.Name)
 		if err != nil {
-			// Only error we can get is invalid name.
-			log.Printf("[game] (%s) failed to join: %v\n", ready.Name, err)
+			log.WithFields(logCtx).Info("failed to join", err)
 
+			// Only error we can get is invalid name.
 			typ = dosProto.MessageType_ERROR
 			message = &dosProto.ErrorMessage{Reason: dosProto.ErrorReason_INVALIDNAME}
 		} else {
-			log.Printf("[game] (%s) joined\n", ready.Name)
+			log.WithFields(logCtx).Info("joined")
 
 			typ = dosProto.MessageType_SUCCESS
 			message = nil
@@ -426,6 +437,9 @@ func handlePlayer(conn *websocket.Conn) {
 	}
 
 	if attempts == MaxAttempts {
+		logCtx["remoteAddr"] = conn.RemoteAddr()
+		log.WithFields(logCtx).Warning("rate limited while sending name")
+
 		conn.WriteControl(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "slow down"),
@@ -514,8 +528,11 @@ func handlePlayer(conn *websocket.Conn) {
 
 			case turn := <-turnChanged:
 				isMyTurn = player.Name == turn.(string)
-				hasDrawn = false
-				hasPlayed = false
+				if isMyTurn {
+					log.WithFields(logCtx).Info("turn")
+					hasDrawn = false
+					hasPlayed = false
+				}
 				continue
 
 			case rawDoneMessage := <-playerDone:
@@ -524,6 +541,7 @@ func handlePlayer(conn *websocket.Conn) {
 					// This message is for someone else.
 					continue
 				}
+				log.WithFields(logCtx).Info("leaving ", doneMessage.AsCloseError())
 
 				// Teardown
 				err = conn.WriteControl(
@@ -533,20 +551,23 @@ func handlePlayer(conn *websocket.Conn) {
 				)
 
 				if err != nil {
-					log.Println("[websocket] error while tearing down player socket:", err)
+					log.WithFields(logCtx).Error("error while closing player socket:", err)
 				}
 
+				// TODO: This might be closing in the wrong state. If the close
+				// request is server initiated, we should wait until the client
+				// responds back.
 				conn.Close()
 				game.RemovePlayer(player)
 
-				// Notify Spectator If Turn Active, Otherwise Ignored
+				// Notify Spectator
 				player.TurnDone <- struct{}{}
 
 				return
 
 			case <-spectatorDone:
-				// TODO : Duplidate teardown?
-				// Teardown Connection. Everything Else Will Be GC'd
+				// Teardown Connection. Everything Else Will Be Handled By
+				// Defered
 				err = conn.WriteControl(
 					websocket.CloseMessage,
 					websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
@@ -554,7 +575,7 @@ func handlePlayer(conn *websocket.Conn) {
 				)
 
 				if err != nil {
-					log.Println("[websocket] error occured while spectator closing player connection:", err)
+					log.WithFields(logCtx).Error("error occured while spectator closing player socket:", err)
 				}
 				conn.Close()
 
@@ -562,13 +583,13 @@ func handlePlayer(conn *websocket.Conn) {
 			}
 
 			if err != nil {
-				log.Println("[protobuf] encoding error", err)
+				log.WithFields(logCtx).Error("protobuf encoding error", err)
 				return
 			}
 
 			err = conn.WriteMessage(websocket.BinaryMessage, buf)
 			if err != nil {
-				log.Println("[websocket] failed to write message", err)
+				log.WithFields(logCtx).Error("failed to write message", err)
 				return
 			}
 		}
@@ -576,7 +597,6 @@ func handlePlayer(conn *websocket.Conn) {
 
 	// Handle leaving
 	conn.SetCloseHandler(func(code int, text string) error {
-		log.Printf("[game] (%s) is leaving\n", player.Name)
 		state.PlayerDone.Broadcast(&CloseMessage{
 			Name: player.Name,
 			Code: code,
@@ -586,62 +606,108 @@ func handlePlayer(conn *websocket.Conn) {
 		return nil
 	})
 
+	var closeMessage string
+	var closeStatus int
+
+	defer func() {
+		// Since this is a nop and can be called multiple times, remove the
+		// player. This needs to happen before TurnDone emits a message.
+		game.RemovePlayer(player)
+
+		if closeMessage != "" {
+			// TODO: Race-y.
+			// The sending of this closing info may not happen if the spectator
+			// terminates the connection before the player does.
+			state.PlayerDone.Broadcast(&CloseMessage{
+				Name: player.Name,
+				Code: closeStatus,
+				Text: closeMessage,
+			})
+		}
+
+		// Continues to the next player if it is our turn otherwise does
+		// nothing.
+		player.TurnDone <- struct{}{}
+	}()
+
 	for {
 		envelope := dosProto.Envelope{}
 		err := Read(conn, &envelope)
 		if err != nil {
+			// This error is because the connection closed.
+			log.WithFields(logCtx).Debug("failed to read message: ", err)
 			return
 		}
 
 		if !isMyTurn {
-			// Ignore messages sent during other people's turns
+			log.WithFields(logCtx).Warning("tried to play during other person's turn")
+			closeMessage = "you can't do that now"
+			closeStatus = websocket.ClosePolicyViolation
 			return
 		}
 
 		switch envelope.Type {
 		case dosProto.MessageType_DRAW:
-			if !hasDrawn && !hasPlayed {
-				log.Printf("[game] (%s) drawing card\n", player.Name)
-				game.DrawCards(&player.Cards, 1)
-				hasDrawn = true
+			if hasDrawn || hasPlayed {
+				log.WithFields(logCtx).Warning("trying to draw after drawing or playing")
+				closeMessage = "you can't do that now"
+				closeStatus = websocket.ClosePolicyViolation
+				return
 			}
+
+			log.WithFields(logCtx).Info("drawing card")
+
+			game.DrawCards(&player.Cards, 1)
+			hasDrawn = true
 
 		case dosProto.MessageType_PLAY:
-			if !hasPlayed {
-				log.Printf("[game] (%s) playing card\n", player.Name)
-
-				playMessage := dosProto.PlayMessage{}
-				err := proto.Unmarshal(envelope.Contents, &playMessage)
-				if err != nil {
-					state.PlayerDone.Broadcast(&CloseMessage{
-						Name: player.Name,
-						Code: websocket.CloseUnsupportedData,
-						Text: "couldn't parse message",
-					})
-
-					return
-				}
-
-				err = game.PlayCard(player, playMessage.Id, playMessage.Color)
-				if err != nil {
-					log.Printf("[game] (%s) tried playing card and failed: %#v %#v\n", player.Name, err, playMessage)
-				} else {
-					log.Printf("[game] (%s) played card\n", player.Name)
-					hasPlayed = true
-				}
+			if hasPlayed {
+				log.WithFields(logCtx).Warning("trying to play multiple times")
+				closeMessage = "you can't do that now"
+				closeStatus = websocket.ClosePolicyViolation
+				return
 			}
+
+			playMessage := dosProto.PlayMessage{}
+			err := proto.Unmarshal(envelope.Contents, &playMessage)
+			if err != nil {
+				log.WithFields(logCtx).Warning("decoding error", err)
+				closeMessage = "couldn't parse message"
+				closeStatus = websocket.ClosePolicyViolation
+				return
+			}
+
+			err = game.PlayCard(player, playMessage.Id, playMessage.Color)
+			if err != nil {
+				log.WithFields(logCtx).Warning("failed to play card", err, playMessage)
+				closeMessage = "you can't play that card"
+				closeStatus = websocket.ClosePolicyViolation
+				return
+			}
+
+			log.WithFields(logCtx).Info("played card")
+			hasPlayed = true
 
 		case dosProto.MessageType_DONE:
-			if hasDrawn || hasPlayed {
-				log.Printf("[game] (%s) done with turn\n", player.Name)
-				player.TurnDone <- struct{}{}
+			if !hasDrawn && !hasPlayed {
+				log.WithFields(logCtx).Warning("trying to skip turn")
+				closeMessage = "you can't do that now"
+				closeStatus = websocket.ClosePolicyViolation
+				return
 			}
 
+			if len(player.Cards.List) == 0 {
+				log.WithFields(logCtx).Info("won")
+				closeMessage = "won!"
+				closeStatus = websocket.CloseNormalClosure
+				return
+			}
+			player.TurnDone <- struct{}{}
+
 		default:
-			state.PlayerDone.Broadcast(&CloseMessage{
-				Text: "you're using that wrong",
-				Code: websocket.CloseUnsupportedData,
-			})
+			log.WithFields(logCtx).Warning("sent invalid message type")
+			closeMessage = "you're using that wrong"
+			closeStatus = websocket.ClosePolicyViolation
 			return
 		}
 	}

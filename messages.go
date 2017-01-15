@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	dosProto "github.com/caffinatedmonkey/dos/proto"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 func Read(conn *websocket.Conn, message proto.Message) error {
@@ -17,7 +17,10 @@ func Read(conn *websocket.Conn, message proto.Message) error {
 	}
 
 	if format != websocket.BinaryMessage {
-		log.Println("[websocket] got non binary message from", conn.RemoteAddr())
+		log.WithFields(log.Fields{
+			"remoteAddr": conn.RemoteAddr(),
+		}).Warning("got non binary websocket message")
+
 		conn.WriteControl(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseUnsupportedData, ""),
@@ -63,7 +66,7 @@ func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.M
 		conn.Close()
 
 		err = fmt.Errorf("Received type %s instead of type %s", envelope.Type.String(), typ.String())
-		log.Println("[websocket]", err)
+		log.Warning("websocket ", err)
 		return err
 	}
 
@@ -80,8 +83,8 @@ func ReadMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.M
 		)
 		conn.Close()
 
-		err = fmt.Errorf("[protobuf] failed to parse envelope: %#v", err)
-		log.Println("[websocket]", err)
+		err = fmt.Errorf("failed to parse protobuf envelope: %#v", err)
+		log.Warning("websocket ", err)
 		return err
 	}
 
@@ -98,13 +101,13 @@ func WriteMessage(conn *websocket.Conn, typ dosProto.MessageType, message proto.
 		)
 		conn.Close()
 
-		log.Println("[protobuf] failed to compose message:", err)
+		log.Warning("failed to compose protobuf message: ", err)
 		return err
 	}
 
 	err = conn.WriteMessage(websocket.BinaryMessage, buf)
 	if err != nil {
-		log.Println("[websocket] failed to write message:", err)
+		log.Warning("failed to write websocket message: ", err)
 		return err
 	}
 
