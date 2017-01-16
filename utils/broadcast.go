@@ -53,6 +53,7 @@ func (broadcast *Broadcaster) RemoveListener(channel chan interface{}) {
 		if listener != channel {
 			newListeners = append(newListeners, listener)
 		}
+
 	}
 
 	if len(broadcast.listeners) == len(newListeners) {
@@ -64,7 +65,7 @@ func (broadcast *Broadcaster) RemoveListener(channel chan interface{}) {
 }
 
 func (broadcast *Broadcaster) Broadcast(thing interface{}) {
-	if len(broadcast.listeners) == 0 {
+	if broadcast.CountListeners() == 0 {
 		return
 	}
 
@@ -72,11 +73,12 @@ func (broadcast *Broadcaster) Broadcast(thing interface{}) {
 }
 
 func (broadcast *Broadcaster) CountListeners() int {
+	// TODO: Should probably sync.
 	return len(broadcast.listeners)
 }
 
 // Sends broadcasted events to all receivers. Every call after the first returns
-// immediately. Only exit once the receiver channel is closed or Destroy() is
+// immediately. Only exits once the receiver channel is closed or Destroy() is
 // called.
 func (broadcast *Broadcaster) StartBroadcasting() {
 	if broadcast.isLive {

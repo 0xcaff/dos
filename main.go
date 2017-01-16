@@ -26,7 +26,10 @@ var GameStore = make(map[int32]*GameState)
 var StoreMutex sync.RWMutex
 
 var (
-	listen   = flag.String("listen", ":8080", "Address to serve on")
+	listen        = flag.String("listen", ":8080", "Address to serve on.")
+	verbosity     = flag.Int("verbosity", int(log.InfoLevel), "Verbosity of messages.")
+	jsonFormatter = flag.Bool("json", false, "Log output as json.")
+
 	upgrader = websocket.Upgrader{
 		// The reverse proxy will have to enfore origin policies.
 		CheckOrigin: func(r *http.Request) bool { return true },
@@ -35,6 +38,12 @@ var (
 
 func main() {
 	flag.Parse()
+
+	// Setup Logger
+	log.SetLevel(log.Level(*verbosity))
+	if *jsonFormatter {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 
 	rand.Seed(time.Now().Unix())
 
@@ -49,10 +58,10 @@ func main() {
 		Handler: mux,
 	}
 
-	log.Infof("initializing server at %s", *listen)
+	log.Infof("initializing server at %s", s.Addr)
 
 	err := s.ListenAndServe()
-	log.Println(err)
+	log.Error(err)
 }
 
 func handleSocket(rw http.ResponseWriter, r *http.Request) {
@@ -132,7 +141,6 @@ func NewGame() (*GameState, int32) {
 	go state.PlayerDone.StartBroadcasting()
 	go state.SpectatorDone.StartBroadcasting()
 
-	go state.CommonMessages.StartBroadcasting()
 	go state.HandleMessages()
 
 	StoreMutex.Lock()
@@ -144,7 +152,11 @@ func NewGame() (*GameState, int32) {
 
 // Encodes messages common to all clients and broadcasts them on CommonMessages.
 func (state *GameState) HandleMessages() {
+	go state.CommonMessages.StartBroadcasting()
+	defer state.CommonMessages.Destroy()
+
 	turnChannel := state.Turn.NewListener()
+	defer state.Turn.RemoveListener(turnChannel)
 
 	for {
 		var err error
@@ -170,10 +182,12 @@ func (state *GameState) HandleMessages() {
 				Player:     nextPlayer.(string),
 			}
 			bytes, err = ZipMessage(dosProto.MessageType_TURN, msg)
+
+			// TODO: There isn't a stopping case for this.
 		}
 
 		if err != nil {
-			log.Error("protobuf encoding error", err)
+			log.Error("protobuf encoding error ", err)
 		} else {
 			state.CommonMessages.Broadcast(bytes)
 		}
@@ -267,7 +281,9 @@ func handleSpectator(conn *websocket.Conn) {
 				}
 
 				conn.Close()
+
 				state.Destroy(session)
+				log.WithFields(logCtx).Info("removed")
 				return
 			}
 
@@ -370,6 +386,8 @@ func handlePlayer(conn *websocket.Conn) {
 		} else if state.IsStarted {
 			message = &dosProto.ErrorMessage{Reason: dosProto.ErrorReason_GAMESTARTED}
 			typ = dosProto.MessageType_ERROR
+
+			state = nil
 		} else {
 			message = nil
 			typ = dosProto.MessageType_SUCCESS
@@ -465,6 +483,7 @@ func handlePlayer(conn *websocket.Conn) {
 			return
 		}
 
+		// Card Updates
 		handAdditions := player.Cards.Additions.NewListener()
 		go player.Cards.Additions.StartBroadcasting()
 		defer player.Cards.Additions.Destroy()
@@ -473,6 +492,7 @@ func handlePlayer(conn *websocket.Conn) {
 		go player.Cards.Deletions.StartBroadcasting()
 		defer player.Cards.Deletions.Destroy()
 
+		// Game Messages
 		messages := state.CommonMessages.NewListener()
 		defer state.CommonMessages.RemoveListener(messages)
 
@@ -562,7 +582,6 @@ func handlePlayer(conn *websocket.Conn) {
 
 				// Notify Spectator
 				player.TurnDone <- struct{}{}
-
 				return
 
 			case <-spectatorDone:
@@ -578,6 +597,8 @@ func handlePlayer(conn *websocket.Conn) {
 					log.WithFields(logCtx).Error("error occured while spectator closing player socket:", err)
 				}
 				conn.Close()
+
+				log.WithFields(logCtx).Info("left by spectator")
 
 				return
 			}

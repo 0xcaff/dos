@@ -122,9 +122,9 @@ func TestWastedBroadcasters(t *testing.T) {
 	}
 
 	// TODO: With even this much time, the shutdown never completes.
-	time.Sleep(time.Second * 20)
+	time.Sleep(time.Second * 5)
 
-	// Count Wasted GoRoutines
+	// Count Wasted Broadcasters
 	toCheckIfClosed := []utils.Broadcaster{
 		gameState.CommonMessages,
 		gameState.Started,
