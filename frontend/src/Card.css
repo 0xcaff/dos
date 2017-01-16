@@ -161,8 +161,8 @@
 
 .inner-card {
   position: absolute;
-  width: calc(calc(2/3) * 100%);
-  height: calc(calc(2/3) * 100%);
+  width: calc((2 / 3) * 100%);
+  height: calc((2 / 3) * 100%);
 
   box-sizing: border-box;
   border: 0.2em solid white;
@@ -179,14 +179,6 @@
   left: 0;
 }
 
-.corner .reverse {
-  width: 50px;
-  height: auto;
-  transform: rotate(-45deg);
-  transform-origin: bottom;
-  fill: white;
-}
-
 .hero-reverse {
   margin: auto;
 }
@@ -195,6 +187,7 @@
   margin: auto;
   width: 80%;
   height: auto;
+  max-height: 100%; /* webkit auto height bug */
 }
 
 .hero-reverse {
@@ -205,14 +198,7 @@
   margin: auto;
   height: 50%;
   width: auto;
-}
-
-.corner .skip {
-  width: 30px;
-  height: auto;
-  margin: auto;
-  transform: translateY(50%);
-  stroke: white;
+  max-width: 100%; /* webkit auto width bug */
 }
 
 .quad-cards {

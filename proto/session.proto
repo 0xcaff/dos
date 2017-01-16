@@ -1,0 +1,7 @@
+syntax = "proto3";
+package dos;
+
+message SessionMessage {
+	int32 session = 1;
+}
+

@@ -12,7 +12,8 @@ type Broadcaster struct {
 	listeners []chan interface{}
 
 	sync.RWMutex
-	isLive bool
+	isLive   bool
+	IsClosed bool
 }
 
 func NewBroadcaster() *Broadcaster {
@@ -52,21 +53,32 @@ func (broadcast *Broadcaster) RemoveListener(channel chan interface{}) {
 		if listener != channel {
 			newListeners = append(newListeners, listener)
 		}
+
 	}
+
+	if len(broadcast.listeners) == len(newListeners) {
+		panic("Tried to remove a listener from a broadcaster which didn't have it.")
+	}
+
 	broadcast.listeners = newListeners
 	broadcast.RWMutex.Unlock()
 }
 
 func (broadcast *Broadcaster) Broadcast(thing interface{}) {
-	if len(broadcast.listeners) == 0 {
+	if broadcast.CountListeners() == 0 {
 		return
 	}
 
 	broadcast.receiver <- thing
 }
 
+func (broadcast *Broadcaster) CountListeners() int {
+	// TODO: Should probably sync.
+	return len(broadcast.listeners)
+}
+
 // Sends broadcasted events to all receivers. Every call after the first returns
-// immediately. Only exit once the receiver channel is closed or Destroy() is
+// immediately. Only exits once the receiver channel is closed or Destroy() is
 // called.
 func (broadcast *Broadcaster) StartBroadcasting() {
 	if broadcast.isLive {
@@ -82,10 +94,12 @@ func (broadcast *Broadcaster) StartBroadcasting() {
 		}
 		broadcast.RWMutex.RUnlock()
 	}
+
+	broadcast.IsClosed = true
 }
 
 // Destroys broadcaster. After a broadcaster is destroyed, all calls to
-// StartBroadcast() return and calls to Broadcast() panic.
+// StartBroadcast() return and calls to StartBroadcast() panic.
 func (broadcast *Broadcaster) Destroy() {
 	broadcast.RWMutex.Lock()
 	close(broadcast.receiver)

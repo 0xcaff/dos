@@ -32,7 +32,7 @@ type Game struct {
 	lastCardPlayed bool
 }
 
-// Creates a new game an initalizes its values
+// Creates a new game an initalizes its values.
 func NewGame(withChannels bool) *Game {
 	// Initalize Values
 	g := Game{
@@ -51,7 +51,10 @@ func NewGame(withChannels bool) *Game {
 	return &g
 }
 
-// Creates a new player, populates its deck and adds it to the game
+// TODO: Limit player amount.
+
+// Creates a new player, populates its deck and adds it to the game, notifying
+// PlayerJoined.
 func (game *Game) NewPlayer(name string) (*Player, error) {
 	for _, player := range game.players {
 		if player.Name == name {
@@ -60,11 +63,14 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	}
 
 	player := &Player{
-		Cards:    *NewCardCollection(),
-		Name:     name,
-		TurnDone: make(chan struct{}, 1),
+		Cards: *NewCardCollection(),
+		Name:  name,
+
+		// This needs a buffer of two because there can be a maximum of three
+		// requests at a time. (closing from read defer or win or PlayerDone).
+		TurnDone: make(chan struct{}, 3),
 	}
-	game.DrawCards(&player.Cards, 8)
+	game.DrawCards(&player.Cards, 7)
 
 	game.playerMutex.Lock()
 	game.players = append(game.players, player)
@@ -78,14 +84,19 @@ func (game *Game) NewPlayer(name string) (*Player, error) {
 	return player, nil
 }
 
+// Removes player from from the game and send a message to the PlayerLeft
+// channel. Nop if called multiple times.
 func (game *Game) RemovePlayer(removing *Player) {
 	game.playerMutex.Lock()
 
 	// Remove Player
+	var removed *Player
 	i := 0
 	newPlayers := make([]*Player, len(game.players))
 	for _, player := range game.players {
-		if player != removing {
+		if player == removing {
+			removed = player
+		} else {
 			newPlayers[i] = player
 			i++
 		}
@@ -97,17 +108,15 @@ func (game *Game) RemovePlayer(removing *Player) {
 	game.players = newPlayers
 	game.playerMutex.Unlock()
 
-	// Return to discard pile
-	game.Discard.PushFront(removing.Cards.List...)
+	if removed != nil {
+		// Return to discard pile
+		game.Discard.PushFront(removed.Cards.List...)
 
-	// Notify Players
-	if game.PlayerLeft != nil {
-		game.PlayerLeft <- removing.Name
+		// Notify Players
+		if game.PlayerLeft != nil {
+			game.PlayerLeft <- removed.Name
+		}
 	}
-
-	// Destroy listeners
-	removing.Additions.Destroy()
-	removing.Deletions.Destroy()
 }
 
 func (game *Game) GetPlayerList() []string {
@@ -121,8 +130,12 @@ func (game *Game) GetPlayerList() []string {
 }
 
 // Called after a player completes their turn. Get's the player who is to play
-// next.
+// next. Returns nil if there aren't enough players.
 func (game *Game) NextPlayer() *Player {
+	if len(game.players) < 2 {
+		return nil
+	}
+
 	// If this is the first turn, pick a random player
 	if game.currentPlayerIndex == -1 {
 		game.currentPlayerIndex = rand.Intn(len(game.players) - 1)
@@ -154,7 +167,6 @@ func (game *Game) NextPlayer() *Player {
 			increment += 1
 			player, _ := game.GetPlayer(1)
 			game.DrawCards(&player.Cards, 4)
-
 		}
 
 		game.lastCardPlayed = true
@@ -217,10 +229,21 @@ func (game *Game) DrawCards(hand *Cards, count int) {
 	}
 
 	if count > len(game.Deck.List) {
-		// TODO: Handle
-		panic("Too many players. Not enough cards.")
+		// Silently fail. There aren't any cards left in the deck. Someone needs
+		// to play something.
+
+		// TODO: What if many players join and the last few don't get any cards?
+		// They will automatically win.
+
+		// TODO: What if players refuse to play when there aren't any cards left
+		// to draw? You might want to know that on the client.
+		return
 	}
 
 	cards := game.Deck.PopN(count)
 	hand.Push(cards...)
+}
+
+func (game *Game) GetPlayers() []*Player {
+	return game.players
 }

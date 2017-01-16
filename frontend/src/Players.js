@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import './Players.css'
 
+// TODO: Some way to show which direction the game is going in.
+// TODO: Player Scores
 class Players extends Component {
   render() {
     return (

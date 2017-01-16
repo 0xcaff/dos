@@ -122,13 +122,8 @@ class Card extends Component {
         </div>
       );
     } else if (this.props.card.type === dos.CardType.SKIP) {
-      let skip = SkipImage;
-      corners = skip;
-      heroSymbol = <div className='hero-skip strech'>{ skip }</div>
+      heroSymbol = <div className='hero-skip strech'>{ SkipImage }</div>
     } else if (this.props.card.type === dos.CardType.REVERSE) {
-      let reverse = ReverseImage;
-
-      corners = reverse;
       heroSymbol = <div className='hero-reverse strech'>{ ReverseImage }</div>
     } else if (this.props.card.type === dos.CardType.NORMAL) {
       let number = this.props.card.number;

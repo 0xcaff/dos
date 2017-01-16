@@ -29,4 +29,8 @@
   width: 30vmax;
 }
 
+.spectator-view .session {
+  text-align: center;
+  margin: auto 0;
+}
 
