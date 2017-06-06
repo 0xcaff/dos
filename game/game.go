@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"sync"
 
-	proto "github.com/caffinatedmonkey/dos/proto"
+	proto "github.com/0xcaff/dos/proto"
 )
 
 type Player struct {

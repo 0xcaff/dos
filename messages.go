@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	dosProto "github.com/caffinatedmonkey/dos/proto"
+	dosProto "github.com/0xcaff/dos/proto"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"

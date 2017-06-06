@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/caffinatedmonkey/dos/game"
-	dosProto "github.com/caffinatedmonkey/dos/proto"
-	"github.com/caffinatedmonkey/dos/utils"
+	"github.com/0xcaff/dos/game"
+	dosProto "github.com/0xcaff/dos/proto"
+	"github.com/0xcaff/dos/utils"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/golang/protobuf/proto"

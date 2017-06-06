@@ -1,7 +1,7 @@
 package dos
 
 import (
-	proto "github.com/caffinatedmonkey/dos/proto"
+	proto "github.com/0xcaff/dos/proto"
 	"testing"
 )
 

@@ -9,8 +9,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	dosProto "github.com/caffinatedmonkey/dos/proto"
-	"github.com/caffinatedmonkey/dos/utils"
+	dosProto "github.com/0xcaff/dos/proto"
+	"github.com/0xcaff/dos/utils"
 	"github.com/golang/protobuf/proto"
 )
 

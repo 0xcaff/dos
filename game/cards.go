@@ -4,8 +4,8 @@ import (
 	"math/rand"
 	"sync"
 
-	proto "github.com/caffinatedmonkey/dos/proto"
-	"github.com/caffinatedmonkey/dos/utils"
+	proto "github.com/0xcaff/dos/proto"
+	"github.com/0xcaff/dos/utils"
 )
 
 type Cards struct {
